@@ -1,8 +1,89 @@
 from manimlib.imports import *
 from random import randrange
 from math import atan
+from math import sqrt
 VIT=FRAME_WIDTH/20
-CD_P=30#change directory proba = 20%
+CD_P=30 #change directory proba = 20%
+
+dt=0.1
+height_vs_scale=0.5
+
+class Vect():
+    def rot():
+        '''
+        Elle calcule le rotationel de la vitesse,
+        puis il donne une valeur comprise entre [0,2*pi]
+        en utilisant la fonction logistic (d'euler)
+        cette valeur représente l'angle de wings
+        '''
+
+class Bird():
+    def __init__(self, position=np.array([0,0,0])):
+        self.generatre_bird(position)
+
+    def generatre_bird(self,position,speed,rot):
+        '''
+        completer la forme de bird
+        '''
+
+        shift=position.copy()
+        self.position=position.copy()
+        shift[2]=0
+        self.bird_objects=[Circle()]
+        scale=height_vs_scale**(-self.position[2])
+        self.bird_objects[0].shift(shift)
+        self.bird_objects[0].scale(scale)
+
+    def move_to(self,position,speed):
+        def generate_para(position,speed):
+            shift=position-self.position
+            shift_len=sqrt(shift[0]**2+shift[1]**2+shift[2]**2)
+            direction=shift/shift_len
+            dOM=speed*dt*direction
+            dOM_len=sqrt(dOM[0]**2+dOM[1]**2+dOM[2]**2)
+            nbr_pts=int(shift_len/dOM_len)
+
+            return dOM,nbr_pts
+
+        dOM,nbr_pts=generate_para(position,speed)
+
+        Objects=[]
+        progress=np.array([0.0,0.0,0.0])
+        for i in range(nbr_pts):
+            progress+=dOM
+            self.generatre_bird(progress)
+            ins=[]
+            for o in self.bird_objects:
+                ins+=[o.copy()]
+            Objects+=[ins]
+
+        self.generatre_bird(position)
+        last=[]
+        for o in self.bird_objects:
+                last+=[o.copy()] 
+        return Objects+[last]
+
+class Test(Scene):
+
+    def play_move_bird_to(self,bird,position,speed):
+        Objs=bird.move_to(position,speed)
+        ob=None
+        for Obj in Objs:
+            ob=Obj
+            for o in Obj:
+                self.add(o)
+            self.wait(dt)
+            for o in Obj:
+                self.remove(o)
+        for o in ob:
+            self.add(o)
+
+    def construct(self):
+        b=Bird()
+        self.wait(2)
+        self.play_move_bird_to(b,RIGHT+IN,1)
+        self.wait(2)
+
 class Main(Scene):
     Daban=[]
     Prev_shift=[]
