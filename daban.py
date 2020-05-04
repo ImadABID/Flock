@@ -8,24 +8,69 @@ CD_P=30 #change directory proba = 20%
 dt=0.1
 height_vs_scale=0.5
 
-class Vect():
-    def rot():
-        '''
-        Elle calcule le rotationel de la vitesse,
-        puis il donne une valeur comprise entre [0,2*pi]
-        en utilisant la fonction logistic (d'euler)
-        cette valeur représente l'angle de wings
-        '''
+class Vector():
+    def __init__(self,x,y,z)
+        self.array=np.array([x,y,z])
+
+    def screen_projection(self):
+        return Vector(self.array[0],self.array[1],0)
+
+    def norme(self):
+        return math.sqrt(
+            self.array[0]**2+
+            self.array[1]**2+
+            self.array[2]**2
+        )
+
+    def copy(self):
+        return Vector(self.array[0],self.array[1],self.array[2])
+
+    @staticmethod
+    def prod_scalaire(u,v):
+        return u.array[0]*v.array[0]+u.array[1]*v.array[1]+u.array[2]*v.array[2]
+
+    @staticmethod
+    def prod_vect(u,v):
+        return Vector(
+            u.array[1]*v.array[2]-u.array[2]*v.array[1],
+            u.array[2]*v.array[0]-u.array[0]*v.array[2],
+            u.array[0]*v.array[1]-u.array[1]*v.array[0])
+
+    @staticmethod
+    def z_axis_angle_entre(u,v):
+        u_p=u.copy()
+        u_p.axies[2]=0
+        v_p=v.copy()
+        v_p.axies[2]=0
+        p_s=Vector.prod_scalaire(u_p,v_p)
+        if p_s!=0:
+            p_s/=(u_p.norme()*v_p.norme())
+        tetha=math.acos(p_s)
+        signe=Vector.prod_vect(u_p,v_p).array[2]
+        if signe<0:
+            return -tetha
+        return tetha
 
 class Bird():
     def __init__(self, position=np.array([0,0,0])):
-        self.generatre_bird(position)
+        self.generatre_bird(position,position,position)
 
-    def generatre_bird(self,position,speed,rot):
+    def generatre_bird(self,position,pre_position,post_position):
         '''
         completer la forme de bird
+        Voir la carnet ...
         '''
+        def b_factor(position,pre_position,post_position):
+            u=Vector(position[0]-pre_position[0],position[1]-pre_position[1],position[2]-pre_position[2])
+            v=Vector(post_position[0]-position[0],post_position[1]-position[1],post_position[2]-position[2])
+            return math.sin(Vector.z_axis_angle_entre(u,v))
 
+        def l_factor(post_position,position):
+            d=Vector(post_position[0]-position[0],post_position[1]-position[1],post_position[2]-position[2])
+            return math.cos(Vector.z_axis_angle_entre(d,Vector(1,0,0)))
+
+        self.direction=None
+        self.rotation=None
         shift=position.copy()
         self.position=position.copy()
         shift[2]=0
