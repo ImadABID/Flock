@@ -8,12 +8,12 @@ CD_P=30 #change directory proba = 20%
 dt=0.1
 height_vs_scale=0.5
 
-class Vector():
-    def __init__(self,x,y,z)
+class Vect():
+    def __init__(self,x,y,z):
         self.array=np.array([x,y,z])
 
     def screen_projection(self):
-        return Vector(self.array[0],self.array[1],0)
+        return Vect(self.array[0],self.array[1],0)
 
     def norme(self):
         return math.sqrt(
@@ -22,8 +22,14 @@ class Vector():
             self.array[2]**2
         )
 
+    def rotation(self,angle,axe):
+        pass
+
+    def coordinte_in(self,base_out,base_in):
+            pass
+
     def copy(self):
-        return Vector(self.array[0],self.array[1],self.array[2])
+        return Vect(self.array[0],self.array[1],self.array[2])
 
     @staticmethod
     def prod_scalaire(u,v):
@@ -31,53 +37,120 @@ class Vector():
 
     @staticmethod
     def prod_vect(u,v):
-        return Vector(
+        return Vect(
             u.array[1]*v.array[2]-u.array[2]*v.array[1],
             u.array[2]*v.array[0]-u.array[0]*v.array[2],
             u.array[0]*v.array[1]-u.array[1]*v.array[0])
 
     @staticmethod
-    def z_axis_angle_entre(u,v):
-        u_p=u.copy()
-        u_p.axies[2]=0
-        v_p=v.copy()
-        v_p.axies[2]=0
-        p_s=Vector.prod_scalaire(u_p,v_p)
-        if p_s!=0:
-            p_s/=(u_p.norme()*v_p.norme())
+    def angle_entre(u,v):
+        u_c=u.copy()
+        v_c=v.copy()
+        p_s=Vect.prod_scalaire(u_c,v_c)
+        n_p=u_c.norme()*v_c.norme()
+        if n_p==0:
+            return 0
+
+        p_s/=n_p
         tetha=math.acos(p_s)
-        signe=Vector.prod_vect(u_p,v_p).array[2]
-        if signe<0:
+        u_vec_v=Vect.prod_vect(u_c,v_c)
+        if Vect.prod_scalaire(u_vec_v,Vect(0,0,1))<0:
             return -tetha
         return tetha
 
 class Bird():
-    def __init__(self, position=np.array([0,0,0])):
+    def __init__(self, position=np.array([0,0,0]),color=WHITE):
+        self.color=color
         self.generatre_bird(position,position,position)
 
-    def generatre_bird(self,position,pre_position,post_position):
-        '''
-        completer la forme de bird
-        Voir la carnet ...
-        '''
-        def b_factor(position,pre_position,post_position):
-            u=Vector(position[0]-pre_position[0],position[1]-pre_position[1],position[2]-pre_position[2])
-            v=Vector(post_position[0]-position[0],post_position[1]-position[1],post_position[2]-position[2])
-            return math.sin(Vector.z_axis_angle_entre(u,v))
+    def generatre_bird(self,position,pre_position,post_position,new_color=None):
+        if new_color!=None:
+            self.color=new_color
 
-        def l_factor(post_position,position):
-            d=Vector(post_position[0]-position[0],post_position[1]-position[1],post_position[2]-position[2])
-            return math.cos(Vector.z_axis_angle_entre(d,Vector(1,0,0)))
+        def wings_base(position,pre_position,post_position):
+            direction=Vect(position[0]-pre_position[0],position[1]-pre_position[1],position[2]-pre_position[2])
+            n=direction.norme()
+            if n==0:
+                return 0
+            direction/=n
 
-        self.direction=None
-        self.rotation=None
-        shift=position.copy()
+            next_direction=Vect(post_position[0]-position[0],post_position[1]-position[1],post_position[2]-position[2])
+            n=next_direction.norme()
+            if n==0:
+                return 0
+            next_direction/=n
+
+            angle_de_divation=Vect.angle_entre(direction,next_direction)
+
+            x,z=0
+            if next_direction.array[0]!=0:
+                x=-next_direction.array[2]/next_direction.array[0]
+                z=1
+            elif next_direction.array[2]!=0:
+                z=-next_direction.array[0]/next_direction.array[1]
+                x=1
+            else:
+                x,z=1,0
+            wings_dir=Vect(x,0,z)
+            wings_dir.array/=wings_dir.norme()
+            wings_dir.rotation(angle_de_divation,next_direction)
+
+            return [wings_dir,next_direction,Vect.prod_vect(wings_dir,next_direction)]
+
+        def wings_pts(position,pre_position,post_position):
+            bird_base=wings_base(position,pre_position,post_position)
+            screen_base=[Vect(1,0,0),Vect(0,1,0),Vect(0,0,1)]
+            Ref_pts=None #les_pts_des_wings_dans_la_base_de_bird : bird_base. à completer !!
+            Wings_pts=[] #les_pts_des_wings_dans_la_base_de_screen
+            for p in Ref_pts:
+                Wings_pts+=[p.coordinte_in(screen_base,bird_base)]
+            return Wings_pts
+
+        def body_pts(post_position,position):
+            pass
+
+        scale=0.01
+        #l=l_factor(post_position,position)
+        #b=b_factor(position,pre_position,post_position)
+
+        ################################################
+        b=1
+        l=1
+        ################################################
+
+        ########### Create the pts using body_pts and wings_pts :
+        head=Circle(
+            radius=20*scale,
+            color=self.color,fill_color=self.color,fill_opacity=1)
+
+        body=Polygon(
+            20*LEFT*scale,20*RIGHT*scale,l*100*DOWN*scale,
+            color=self.color,fill_color=self.color,fill_opacity=1)
+        tail=Polygon(
+            (10*LEFT+100*DOWN)*scale,(10*RIGHT+100*DOWN)*scale,80*l*DOWN*scale,
+            color=self.color,fill_color=self.color,fill_opacity=1)
+        wing_l=Polygon(
+            0*LEFT,75*b*LEFT*scale,(100*b*LEFT+20*l*DOWN)*scale,
+            (100*b*LEFT+50*l*DOWN)*scale,(75*b*LEFT+30*l*DOWN)*scale,
+            30*l*scale*DOWN,
+            color=self.color,fill_color=self.color,fill_opacity=1)
+        wing_r=Polygon(
+            0*RIGHT,75*b*RIGHT*scale,(100*b*RIGHT+20*l*DOWN)*scale,
+            (100*b*RIGHT+50*l*DOWN)*scale,(75*b*RIGHT+30*l*DOWN)*scale,
+            30*l*scale*DOWN,
+            color=self.color,fill_color=self.color,fill_opacity=1)
+        ###########
+
+        self.bird_objects=[head,body,tail,wing_l,wing_r]
+
+        ######################### scale _ rotion _ shift
+        #shift=position.copy()
+        #shift[2]=0
+        #scale=height_vs_scale**(-self.position[2])
+        #self.bird_objects[0].shift(shift)
+        #self.bird_objects[0].scale(scale)
+
         self.position=position.copy()
-        shift[2]=0
-        self.bird_objects=[Circle()]
-        scale=height_vs_scale**(-self.position[2])
-        self.bird_objects[0].shift(shift)
-        self.bird_objects[0].scale(scale)
 
     def move_to(self,position,speed):
         def generate_para(position,speed):
@@ -125,8 +198,8 @@ class Test(Scene):
 
     def construct(self):
         b=Bird()
-        self.wait(2)
-        self.play_move_bird_to(b,RIGHT+IN,1)
+        b.generatre_bird(1*LEFT+1*UP,0*UP,2*LEFT+2*UP+5*IN,new_color=None)
+        self.add(*b.bird_objects)
         self.wait(2)
 
 class Main(Scene):
