@@ -103,7 +103,7 @@ class Bird():
         def z_axis_to_scale(z):
             return height_vs_scale**(-z)
 
-        def wings_2D_pts(position,pre_position,post_position):
+        def wings_objects(position,pre_position,post_position):
 
             def wings_base(position,pre_position,post_position):
                 screen_base=[Vect(1,0,0),Vect(0,1,0),Vect(0,0,1)]
@@ -165,64 +165,53 @@ class Bird():
                     pts_np_arr+=[np.array([p.array[0],p.array[1],0])]
                 return pts_np_arr
 
-            return pts_3D_to2D(wings_pts(position,pre_position,post_position))
+            pts_2D=pts_3D_to2D(wings_pts(position,pre_position,post_position))
+            wings=Polygon(
+                *pts_2D,
+                color=self.color,fill_color=self.color,fill_opacity=1,stroke_width=10
+            )
+            return [wings]
 
-        def body_pts(post_position,position):
-            #Ref_pts=[
-                # à complter
-            #]
-            pass
+
+        def body_objects(post_position,position):
+            l=1
+            direction=Vect(
+                post_position[0]-position[0],
+                post_position[1]-position[1],
+                post_position[2]-position[2]
+            )
+            n=direction.norme()
+            if n!=0:
+                direction.array/=n
+            l=Vect.prod_scalaire(direction,direction.screen_projection())
+
+            head=Circle(
+                radius=20,
+                color=self.color,fill_color=self.color,fill_opacity=1
+            )
+            body=Polygon(
+                20*LEFT,20*RIGHT,l*100*DOWN,
+                color=self.color,fill_color=self.color,fill_opacity=1
+            )
+            tail=Polygon(
+                10*LEFT+100*DOWN,10*RIGHT+100*DOWN,80*l*DOWN,
+                color=self.color,fill_color=self.color,fill_opacity=1
+            )
+            angle=Vect.angle_entre(Vect(0,1,0),direction)
+            head.rotate(angle,about_point=position)
+            body.rotate(angle,about_point=position)
+            tail.rotate(angle,about_point=position)
+            return [head,body,tail]
 
         if new_color!=None:
             self.color=new_color
         self.position=position.copy()
 
-        scale=0.01
-        z_scale=z_axis_to_scale(position[2])
-
-        wings=Polygon(
-            *wings_2D_pts(position,pre_position,post_position),
-            color=self.color,fill_color=self.color,fill_opacity=1,stroke_width=10)
-        wings.scale(z_scale*scale,about_point=position)
-        #wings.rotate(,about_point=position)
-        return wings
-
-        """
-        head=Circle(
-            radius=20*scale,
-            color=self.color,fill_color=self.color,fill_opacity=1)
-
-        body=Polygon(
-            20*LEFT*scale,20*RIGHT*scale,l*100*DOWN*scale,
-            color=self.color,fill_color=self.color,fill_opacity=1)
-        tail=Polygon(
-            (10*LEFT+100*DOWN)*scale,(10*RIGHT+100*DOWN)*scale,80*l*DOWN*scale,
-            color=self.color,fill_color=self.color,fill_opacity=1)
-
-        ###################
-        wing_l=Polygon(
-            0*LEFT,75*b*LEFT*scale,(100*b*LEFT+20*l*DOWN)*scale,
-            (100*b*LEFT+50*l*DOWN)*scale,(75*b*LEFT+30*l*DOWN)*scale,
-            30*l*scale*DOWN,
-            color=self.color,fill_color=self.color,fill_opacity=1)
-        ###############""
-
-        wing_r=Polygon(
-            0*RIGHT,75*b*RIGHT*scale,(100*b*RIGHT+20*l*DOWN)*scale,
-            (100*b*RIGHT+50*l*DOWN)*scale,(75*b*RIGHT+30*l*DOWN)*scale,
-            30*l*scale*DOWN,
-            color=self.color,fill_color=self.color,fill_opacity=1)
-        ###########
-
-        self.bird_objects=[head,body,tail,wing_l,wing_r]
-
-        ######################### scale _ rotion _ shift
-        #shift=position.copy()
-        #shift[2]=0
-        scale=height_vs_scale**(-self.position[2])
-        #self.bird_objects[0].shift(shift)
-        #self.bird_objects[0].scale(scale)
-        """
+        scale=0.01*z_axis_to_scale(position[2])
+        bird_objects=body_objects(post_position,position)+wings_objects(position,pre_position,post_position)
+        for obj in bird_objects:
+            obj.scale(scale,about_point=position)
+        return bird_objects
 
     def move_to(self,position,speed):
         def generate_para(position,speed):
@@ -270,7 +259,8 @@ class Test(Scene):
 
     def construct(self):
         b=Bird()
-        self.add(b.generatre_bird(0*RIGHT,DOWN,RIGHT+4*UP))
+        self.add(*b.generatre_bird(0*RIGHT,DOWN,RIGHT+4*UP))
+        #self.add(*b.generatre_bird(0*RIGHT,LEFT,RIGHT))
         self.wait(2)
 
 class Main(Scene):
