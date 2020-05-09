@@ -25,33 +25,37 @@ class Vect():
     def scalaire_mult(self,a):
         self.array*=a
 
-    def coordinte_in_screen_base(self,base_bird):
-        np_base_bird=np.array([base_bird[0].array,base_bird[1].array,base_bird[2].array])
-        V=np.dot(np_base_bird,self.array)
+    def coordinte_in_bird_base(self,base_bird):
+        passage=np.array([base_bird[0].array,base_bird[1].array,base_bird[2].array])
+        V=np.dot(passage,self.array)
         return Vect(V[0],V[1],V[2])
 
-    def coordinte_in_bird_base(self,base_bird):
-        np_base_bird=np.array([base_bird[0].array,base_bird[1].array,base_bird[2].array])
-        V=np.dot(np.linalg.inv(np_base_bird),self.array)
+    def coordinte_in_screen_base(self,base_bird):
+        passage=np.array([base_bird[0].array,base_bird[1].array,base_bird[2].array])
+        V=np.dot(np.linalg.inv(passage),self.array)
         return Vect(V[0],V[1],V[2])
 
     def rotation_arround_direction(self,angle,base_bird):
-        r1=np.array([np.cos(angle),0,np.sin(angle)])
-        r2=np.array([0,1,0])
-        r3=np.array([-np.sin(angle),0,np.cos(angle)])
-        Rot=np.array([r1,r2,r3])
+        Mat_Rot=np.array([
+            np.array([np.cos(angle),0,np.sin(angle)]),
+            np.array([0,1,0]),
+            np.array([-np.sin(angle),0,np.cos(angle)])
+        ])
         vec_in_bird_base=self.coordinte_in_bird_base(base_bird)
-        rotated_vec_in_bird_base=np.dot(Rot,vec_in_bird_base.array)
+        rotated_vec_in_bird_base_array=np.dot(Mat_Rot,vec_in_bird_base.array)
         rotated_vec_in_bird_base=Vect(
-            rotated_vec_in_bird_base[0],
-            rotated_vec_in_bird_base[1],
-            rotated_vec_in_bird_base[2]
+            rotated_vec_in_bird_base_array[0],
+            rotated_vec_in_bird_base_array[1],
+            rotated_vec_in_bird_base_array[2]
         )
         rotated_vec_in_screen_base=rotated_vec_in_bird_base.coordinte_in_screen_base(base_bird)
-        self=rotated_vec_in_screen_base.copy()
+        self.array=rotated_vec_in_screen_base.array
 
     def copy(self):
         return Vect(self.array[0],self.array[1],self.array[2])
+
+    def str(self):
+        return '('+str(self.array[0])+','+str(self.array[1])+','+str(self.array[2])+')'
 
     @staticmethod
     def prod_scalaire(u,v):
@@ -74,6 +78,14 @@ class Vect():
             return 0
 
         p_s/=n_p
+        
+        # A cause de l'erreur de calcule décimale.
+        if p_s>1 :
+            p_s=1
+
+        if p_s<-1 :
+            p_s=-1
+
         tetha=math.acos(p_s)
         u_vec_v=Vect.prod_vect(u_c,v_c)
         if Vect.prod_scalaire(u_vec_v,Vect(0,0,1))<0:
@@ -94,38 +106,39 @@ class Bird():
         def wings_2D_pts(position,pre_position,post_position):
 
             def wings_base(position,pre_position,post_position):
+                screen_base=[Vect(1,0,0),Vect(0,1,0),Vect(0,0,1)]
                 direction=Vect(position[0]-pre_position[0],position[1]-pre_position[1],position[2]-pre_position[2])
                 n=direction.norme()
                 if n==0:
-                    pass
+                    return screen_base
                 direction.scalaire_mult(1/n)
 
                 next_direction=Vect(post_position[0]-position[0],post_position[1]-position[1],post_position[2]-position[2])
                 n=next_direction.norme()
                 if n==0:
-                    pass
+                    return screen_base
                 next_direction.scalaire_mult(1/n)
 
                 angle_de_divation=Vect.angle_entre(direction,next_direction)
 
-                x,z=0,0
+                x,z=0.0,0.0
                 if next_direction.array[0]!=0:
                     x=-next_direction.array[2]/next_direction.array[0]
-                    z=1
+                    z=1.0
                 elif next_direction.array[2]!=0:
-                    z=-next_direction.array[0]/next_direction.array[1]
-                    x=1
+                    z=-next_direction.array[0]/next_direction.array[2]
+                    x=1.0
                 else:
-                    x,z=1,0
+                    x,z=1.0,0.0
                 wings_dir=Vect(x,0,z)
                 wings_dir.array/=wings_dir.norme()
-                base_bird=[wings_dir.copy(),next_direction.copy(),Vect.prod_vect(wings_dir,next_direction)]
-                wings_dir.rotation_arround_direction(angle_de_divation,base_bird)
-                f=open("error.tracker",'a')
-                f.write("\nwings_base() activated : \tbase_bird[0]="+str(wings_dir.array))
-                f.close()
-                base_bird=[wings_dir,next_direction,Vect.prod_vect(wings_dir,next_direction)]
+                third_vect=Vect.prod_vect(wings_dir,next_direction)
+                base_bird=[wings_dir.copy(),next_direction.copy(),third_vect.copy()]
 
+                wings_dir.rotation_arround_direction(angle_de_divation,base_bird)
+                third_vect.rotation_arround_direction(angle_de_divation,base_bird)
+
+                base_bird=[wings_dir.copy(),next_direction.copy(),third_vect.copy()]
                 return base_bird
 
             def wings_pts(position,pre_position,post_position):
@@ -141,6 +154,7 @@ class Bird():
                     Vect(100,-20,0),
                 ] #les_pts_des_wings_dans_la_base_de_bird : bird_base.
                 Wings_pts=[] #les_pts_des_wings_dans_la_base_de_screen
+
                 for p in Ref_pts:
                     Wings_pts+=[p.coordinte_in_screen_base(bird_base)]
                 return Wings_pts
@@ -158,18 +172,19 @@ class Bird():
                 # à complter
             #]
             pass
-        
+
         if new_color!=None:
             self.color=new_color
         self.position=position.copy()
 
-        scale=0.3
+        scale=0.01
         z_scale=z_axis_to_scale(position[2])
 
         wings=Polygon(
             *wings_2D_pts(position,pre_position,post_position),
-            color=self.color,fill_color=self.color,fill_opacity=1)
-        wings.scale(z_scale*scale)
+            color=self.color,fill_color=self.color,fill_opacity=1,stroke_width=10)
+        wings.scale(z_scale*scale,about_point=position)
+        #wings.rotate(,about_point=position)
         return wings
 
         """
@@ -235,7 +250,7 @@ class Bird():
         self.generatre_bird(position)
         last=[]
         for o in self.bird_objects:
-                last+=[o.copy()] 
+                last+=[o.copy()]
         return Objects+[last]
 
 class Test(Scene):
@@ -255,7 +270,7 @@ class Test(Scene):
 
     def construct(self):
         b=Bird()
-        self.add(b.generatre_bird(0*LEFT,0*DOWN,0*UP,new_color=None))
+        self.add(b.generatre_bird(0*RIGHT,DOWN,RIGHT+4*UP))
         self.wait(2)
 
 class Main(Scene):
