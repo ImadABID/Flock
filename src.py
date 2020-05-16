@@ -34,7 +34,7 @@ class Test(Scene):
         self.wait(2)
 
 #============================= Bird class =================================================
-height_vs_scale=0.5
+
 class Bird():
     def __init__(self, position=np.array([0,0,0]),color=WHITE):
         self.color=color
@@ -44,7 +44,7 @@ class Bird():
     def generatre_bird(self,position,pre_position,post_position,new_color=None):
 
         def z_axis_to_scale(z):
-            return height_vs_scale**(-z)
+            return 0.5**(-z)
 
         def wings_objects(position,pre_position,post_position):
 
@@ -136,7 +136,7 @@ class Bird():
                 color=self.color,fill_color=self.color,fill_opacity=1
             )
             tail=Polygon(
-                10*LEFT+100*DOWN,10*RIGHT+100*DOWN,80*l*DOWN,
+                10*LEFT+100*l*DOWN,10*RIGHT+100*l*DOWN,80*l*DOWN,
                 color=self.color,fill_color=self.color,fill_opacity=1
             )
             angle=Vect.angle_entre(Vect(0,1,0),direction)
