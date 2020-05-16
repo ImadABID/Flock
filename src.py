@@ -162,8 +162,6 @@ class Bird():
             * v_d and v_a must have a component following the main direction and it must be positive
         '''
 
-        f=open("error.tracker",'w')
-
         def verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a):
             if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
                 raise ValueError("La position de depart c'est la position d'arrive")
@@ -393,14 +391,12 @@ class Bird():
 
             V.scalaire_mult(dt)
             Positions+=[Vect.somme(Positions[i],V)]
-        
+
         positions=[]
         for p in Positions:
             positions+=[p.array]
-            f.write(p.str()+"\n")
         return positions
 
-        f.close()
 #============================= Vect class =================================================
 
 class Vect():
