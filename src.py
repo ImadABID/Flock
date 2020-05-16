@@ -2,13 +2,36 @@ from manimlib.imports import *
 from random import randrange
 import math
 
+dt=0.017 #60 fps
+dt=0.1 #test
+
 #============================= Manim Test class =================================================
 class Test(Scene):
 
     def construct(self):
         b=Bird()
-        self.add(*b.generatre_bird(0*RIGHT,DOWN,RIGHT+4*UP))
-        self.wait(2)
+        #P=b.position_interpolation(2*LEFT,2*RIGHT,0.5*IN+0.5*RIGHT,0.5*OUT+0.5*RIGHT)
+        #P=b.position_interpolation(2*LEFT,2*RIGHT,0.5*UP+0.5*RIGHT,0.5*DOWN+0.5*RIGHT)
+        P=b.position_interpolation(2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*RIGHT+OUT)
+        #for i in range(len(P)):
+        #    p=P[i]
+        #    pp=None
+        #    pn=None
+        #    if i==0:
+        #        pp=p
+        #    else:
+        #        pp=P[i-1]
+        #
+        #    if i==len(P)-1:
+        #        pn=p
+        #    else:
+        #        pn=P[i+1]
+#
+        #    obj=b.generatre_bird(p,pp,pn)
+        #    self.add(*obj)
+        #    self.wait(dt)
+        #    self.remove(*obj)
+        #self.wait(2)
 
 #============================= Bird class =================================================
 height_vs_scale=0.5
@@ -92,7 +115,6 @@ class Bird():
             )
             return [wings]
 
-
         def body_objects(post_position,position):
             l=1
             direction=Vect(
@@ -132,6 +154,169 @@ class Bird():
         for obj in bird_objects:
             obj.scale(scale,about_point=position)
         return bird_objects
+
+    def position_interpolation(self,p_d,p_a,v_d,v_a):
+        '''
+        This function works in those conditions:
+            * p_d != p_a
+            * v_d and v_a must have a component following the main direction and it must be positive
+        '''
+
+        f=open("error.tracker",'w')
+
+        def verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a):
+            if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
+                raise ValueError("La position de depart c'est la position d'arrive")
+            P_d=Vect(p_d[0],p_d[1],p_d[2])
+            P_a=Vect(p_a[0],p_a[1],p_a[2])
+            main_direc=Vect.soustraction(P_a,P_d)
+            l=main_direc.norme()
+            main_direc.array/=l
+
+            V_d=Vect(v_d[0],v_d[1],v_d[2])
+            V_a=Vect(v_a[0],v_a[1],v_a[2])
+
+            v_d_prj=Vect.prod_scalaire(V_d,main_direc)
+            v_a_prj=Vect.prod_scalaire(V_a,main_direc)
+            if v_d_prj<=0:
+                raise ValueError("Le vitesse de départ ne suit pas la direction principale")
+            if v_a_prj<=0:
+                raise ValueError("Le vitesse d'arrive ne suit pas la direction principale")
+
+            n=int(2*l/(dt*(v_d_prj+v_a_prj)))
+
+            return P_d,P_a,V_d,V_a,l,main_direc,n
+
+        def vitesse_first_rad(V_d,V_a,l,n,base_mvt):
+            v1=Vect.prod_scalaire(V_d,base_mvt[1])
+            v2=Vect.prod_scalaire(V_a,base_mvt[1])
+            d=l/n
+            if v1*v2<=0:
+                x=v2/(v2+v1)*l
+                V_rad_1_scal=[v1]
+                dis=0
+                if x!=0:
+                    a=-v1/x
+                    while dis<x:
+                        dis+=d
+                        V_rad_1_scal+=[v1+a*dis]
+
+                if x!=l:
+                    a=v2/(l-x)
+                    while dis<l:
+                        dis+=d
+                        V_rad_1_scal+=[a*(dis-x)]
+                return V_rad_1_scal
+
+            else:
+                x1=v2/(v1+3*v2)*l
+                x2,x3=2*x1,3*x1
+                v3=(v1+v2)/2
+                V_rad_1_scal=[v1]
+                dis=0
+                a=-v1/x1
+                while dis<x1:
+                    dis+=d
+                    V_rad_1_scal+=[v1+a*dis]
+
+                a=v3/x1
+                while dis<x2:
+                    dis+=d
+                    V_rad_1_scal+=[a*(dis-x1)]
+
+                a*=-1
+                while dis<x3:
+                    dis+=d
+                    V_rad_1_scal+=[v3+a*(dis-x2)]
+                
+                a=v2/(l-x)
+                while dis<l:
+                    dis+=d
+                    V_rad_1_scal+=[a*(dis-x3)]
+                
+                return V_rad_1_scal
+
+        def choose_mvt_base(main_direc,V_d,V_a):
+            v_init=None
+            if Vect.is_equal(Vect.prod_vect(V_d,main_direc),Vect(0,0,0)):
+                v_init=V_a.copy()
+            else:
+                v_init=V_d.copy()
+            
+            x_d,y_d,z_d=main_direc.array[0],main_direc.array[1],main_direc.array[2]
+            x_v,y_v,z_v=v_init.array[0],v_init.array[1],v_init.array[2]
+            x_n,y_n,z_n=y_d*z_v-z_d*y_v,z_d*x_v-x_d*z_v,x_d*y_v-y_d*x_v
+
+            x,y,z=None,None,None
+            nbr_zero_dirc_eq=0
+            if x_d==0:
+                nbr_zero_dirc_eq+=1
+            if y_d==0:
+                nbr_zero_dirc_eq+=1
+            if z_d==0:
+                nbr_zero_dirc_eq+=1
+            
+            f.write("nbr_zero_dirc_eq = "+str(nbr_zero_dirc_eq)+'\n')
+
+            if nbr_zero_dirc_eq==2:
+                if x_d!=0:
+                    x=0.0
+                    if y_n!=0:
+                        z=1.0
+                        y=-z_n/y_n
+                    else :
+                        y=1.0
+                        z=0.0
+
+                elif y_d!=0:
+                    y=0.0
+                    if x_n!=0:
+                        z=1.0
+                        x=-z_n/x_n
+                    else :
+                        x=1.0
+                        z=0.0
+
+                else:
+                    z=0.0
+                    if x_n!=0:
+                        y=1.0
+                        x=-y_n/x_n
+                    else :
+                        x=1.0
+                        y=0.0
+
+            elif nbr_zero_dirc_eq==1:
+                if x_d==0:
+                    z=1.0
+                    y=-z_d/y_d
+                    x=-(y_n*y+z_n*z)/x_n
+
+                if y_d==0:
+                    z=1.0
+                    x=-z_d/x_d
+                    y=-(x_n*x+z_n*z)/y_n
+
+                if z_d==0:
+                    y=1.0
+                    x=-y_d/x_d
+                    z=-(x_n*x+y_n*y)/z_n
+            else :
+                z=1.0
+                y=(x_d*z_n-x_n*z_d)/(x_n*y_d-x_d*y_n)
+                x=-(x_d*y_n*y+x_d*z_n)/(x_d*x_n)
+
+            vec=Vect(x,y,z)
+            f.write(vec.str()+"\n")
+            vec.array/=vec.norme()
+            return [main_direc,vec,Vect.prod_vect(main_direc,vec)]
+
+        P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
+
+
+        base=choose_mvt_base(main_direc,V_d,V_a)
+        f.write(base[0].str()+"\n"+base[1].str()+"\n"+base[2].str())
+        f.close()
 #============================= Vect class =================================================
 
 class Vect():
@@ -182,6 +367,20 @@ class Vect():
 
     def str(self):
         return '('+str(self.array[0])+','+str(self.array[1])+','+str(self.array[2])+')'
+
+    @staticmethod
+    def is_equal(u,v):
+        if u.array[0]==v.array[0] and u.array[1]==v.array[1] and u.array[2]==v.array[2]:
+            return True
+        return False
+
+    @staticmethod
+    def somme(u,v):
+        return Vect(u.array[0]+v.array[0],u.array[1]+v.array[1],u.array[2]+v.array[2])
+
+    @staticmethod
+    def soustraction(u,v):
+        return Vect(u.array[0]-v.array[0],u.array[1]-v.array[1],u.array[2]-v.array[2])
 
     @staticmethod
     def prod_scalaire(u,v):
