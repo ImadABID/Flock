@@ -10,28 +10,28 @@ class Test(Scene):
 
     def construct(self):
         b=Bird()
-        #P=b.position_interpolation(2*LEFT,2*RIGHT,0.5*IN+0.5*RIGHT,0.5*OUT+0.5*RIGHT)
+        P=b.position_interpolation(2*LEFT,2*RIGHT,0.5*IN+0.5*RIGHT,0.5*OUT+0.5*RIGHT)
         #P=b.position_interpolation(2*LEFT,2*RIGHT,0.5*UP+0.5*RIGHT,0.5*DOWN+0.5*RIGHT)
-        P=b.position_interpolation(2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*RIGHT+OUT)
-        #for i in range(len(P)):
-        #    p=P[i]
-        #    pp=None
-        #    pn=None
-        #    if i==0:
-        #        pp=p
-        #    else:
-        #        pp=P[i-1]
-        #
-        #    if i==len(P)-1:
-        #        pn=p
-        #    else:
-        #        pn=P[i+1]
-#
-        #    obj=b.generatre_bird(p,pp,pn)
-        #    self.add(*obj)
-        #    self.wait(dt)
-        #    self.remove(*obj)
-        #self.wait(2)
+        #P=b.position_interpolation(2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*RIGHT+OUT)
+        for i in range(len(P)):
+            p=P[i]
+            pp=None
+            pn=None
+            if i==0:
+                pp=p
+            else:
+                pp=P[i-1]
+        
+            if i==len(P)-1:
+                pn=p
+            else:
+                pn=P[i+1]
+
+            obj=b.generatre_bird(p,pp,pn)
+            self.add(*obj)
+            self.wait(dt)
+            self.remove(*obj)
+        self.wait(2)
 
 #============================= Bird class =================================================
 height_vs_scale=0.5
@@ -62,7 +62,7 @@ class Bird():
                     return screen_base
                 next_direction.scalaire_mult(1/n)
 
-                angle_de_divation=Vect.angle_entre(direction,next_direction)
+                angle_de_divation=Vect.angle_entre(direction,next_direction)*30
 
                 x,z=0.0,0.0
                 if next_direction.array[0]!=0:
@@ -187,12 +187,23 @@ class Bird():
 
             return P_d,P_a,V_d,V_a,l,main_direc,n
 
+        def vitesse_main_direction(V_d,V_a,l,n,base_mvt):
+            v_1=Vect.prod_scalaire(V_d,base_mvt[0])
+            v_2=Vect.prod_scalaire(V_a,base_mvt[0])
+            a=(v_2-v_1)/(n*dt)
+            
+            V=[v_1]
+            for i in range(1,n):
+                V+=[v_1+a*i*dt]
+
+            return V
+
         def vitesse_first_rad(V_d,V_a,l,n,base_mvt):
             v1=Vect.prod_scalaire(V_d,base_mvt[1])
             v2=Vect.prod_scalaire(V_a,base_mvt[1])
             d=l/n
             if v1*v2<=0:
-                x=v2/(v2+v1)*l
+                x=abs(v2)/(abs(v2)+abs(v1))*l
                 V_rad_1_scal=[v1]
                 dis=0
                 if x!=0:
@@ -209,9 +220,11 @@ class Bird():
                 return V_rad_1_scal
 
             else:
-                x1=v2/(v1+3*v2)*l
+                x1=abs(v2)/(abs(v1)+3*abs(v2))*l
                 x2,x3=2*x1,3*x1
-                v3=(v1+v2)/2
+                v3=(abs(v1)+abs(v2))/2
+                if v1>0:
+                    v3*=-1
                 V_rad_1_scal=[v1]
                 dis=0
                 a=-v1/x1
@@ -235,6 +248,57 @@ class Bird():
                     V_rad_1_scal+=[a*(dis-x3)]
                 
                 return V_rad_1_scal
+        
+        def vitesse_second_rad(V_d,V_a,l,n,base_mvt):
+            v_init=Vect.prod_scalaire(V_a,base_mvt[2])
+            d=l/n
+            x1=l/3
+            dis=0
+            if v_init==0:
+                v_init=Vect.prod_scalaire(V_d,base_mvt[2])
+                if v_init==0:
+                    return [0]*n
+                
+                v_=v_init/2
+                V=[v_init]
+
+                a=-v_init/x1
+                while dis < x1:
+                    dis+=d
+                    V+=[v_init+a*dis]
+
+                a=v_/x1
+                while dis < 2*x1:
+                    dis+=d
+                    V+=[a*(dis-x1)]
+                
+                a*=-1
+                while dis < l:
+                    dis+=d
+                    V+=[v_+a*(dis-2*x1)]
+                
+                return V
+
+            else :
+                V=[v_init]
+                v_=v_init/2
+
+                a=-v_/x1
+                while dis < x1:
+                    dis+=d
+                    V+=[a*dis]
+
+                a*=-1
+                while dis < 2*x1:
+                    dis+=d
+                    V+=[v_+a*(dis-x1)]
+
+                a=v_init/x1
+                while dis < l:
+                    dis+=d
+                    V+=[a*(dis-2*x1)]
+                
+                return V
 
         def choose_mvt_base(main_direc,V_d,V_a):
             v_init=None
@@ -255,8 +319,6 @@ class Bird():
                 nbr_zero_dirc_eq+=1
             if z_d==0:
                 nbr_zero_dirc_eq+=1
-            
-            f.write("nbr_zero_dirc_eq = "+str(nbr_zero_dirc_eq)+'\n')
 
             if nbr_zero_dirc_eq==2:
                 if x_d!=0:
@@ -307,15 +369,37 @@ class Bird():
                 x=-(x_d*y_n*y+x_d*z_n)/(x_d*x_n)
 
             vec=Vect(x,y,z)
-            f.write(vec.str()+"\n")
             vec.array/=vec.norme()
             return [main_direc,vec,Vect.prod_vect(main_direc,vec)]
 
         P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
+        base_mvt=choose_mvt_base(main_direc,V_d,V_a)
 
+        Vn=vitesse_main_direction(V_d,V_a,l,n,base_mvt)
+        Vr1=vitesse_first_rad(V_d,V_a,l,n,base_mvt)
+        Vr2=vitesse_second_rad(V_d,V_a,l,n,base_mvt)
 
-        base=choose_mvt_base(main_direc,V_d,V_a)
-        f.write(base[0].str()+"\n"+base[1].str()+"\n"+base[2].str())
+        Positions=[P_d]
+        for i in range(n):
+            vn_vec=base_mvt[0].copy()
+            vn_vec.scalaire_mult(Vn[i])
+            vr1_vec=base_mvt[1].copy()
+            vr1_vec.scalaire_mult(Vr1[i])
+            vr2_vec=base_mvt[2].copy()
+            vr2_vec.scalaire_mult(Vr2[i])
+
+            Vr=Vect.somme(vr1_vec,vr2_vec)
+            V=Vect.somme(vn_vec,Vr)
+
+            V.scalaire_mult(dt)
+            Positions+=[Vect.somme(Positions[i],V)]
+        
+        positions=[]
+        for p in Positions:
+            positions+=[p.array]
+            f.write(p.str()+"\n")
+        return positions
+
         f.close()
 #============================= Vect class =================================================
 
