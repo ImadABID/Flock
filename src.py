@@ -2,8 +2,8 @@ from manimlib.imports import *
 from random import randrange
 import math
 
-#dt=0.017 #60 fps
-dt=0.1 #test
+dt=0.017 #60 fps
+#dt=0.1 #test
 
 #============================= Manim Test class =================================================
 class Test(Scene):
@@ -12,9 +12,9 @@ class Test(Scene):
         b=Bird()
         positions=[
             [2.0*LEFT,2.0*RIGHT,0.5*IN+0.5*RIGHT,0.5*IN+0.5*RIGHT],
-            [2.0*RIGHT,3.0*RIGHT+3.0*UP,0.5*IN+0.5*RIGHT,0.1*UP],
-            [3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT],
-            [2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT]
+            #[2.0*RIGHT,3.0*RIGHT+3.0*UP,0.5*IN+0.5*RIGHT,0.1*UP],
+            #[3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT],
+            #[2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT]
         ]
         P=[]
         A=[]
@@ -87,14 +87,18 @@ class Bird():
             def wings_pts(position,pre_position,post_position):
                 bird_base=wings_base(position,pre_position,post_position)
                 Ref_pts=[
-                    Vect(75,0,0),
-                    Vect(-75,0,0),
-                    Vect(-100,-20,0),
-                    Vect(-100,-50,0),
-                    Vect(-75,-30,0),
-                    Vect(75,-30,0),
-                    Vect(100,-50,0),
-                    Vect(100,-20,0),
+                    Vect (-20,-10,0),
+                    Vect(-60,0,0),
+                    Vect (-100,0,0),
+                    Vect(-110,-20,0),
+                    Vect(-70,-32,0),
+                    Vect(-20,-40,0),
+                    Vect(20,-40,0),
+                    Vect(70,-32,0),
+                    Vect(110,-20,0),
+                    Vect(100,0,0),
+                    Vect(60,0,0),
+                    Vect(20,-10,0)
                 ] #les_pts_des_wings_dans_la_base_de_bird : bird_base.
                 Wings_pts=[] #les_pts_des_wings_dans_la_base_de_screen
 
