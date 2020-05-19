@@ -30,7 +30,7 @@ class Bird():
         self.position=position
         #self.wings=self.generatre_bird(position,position,position)
 
-    def generatre_bird(self,position,pre_position,post_position,new_color=None):
+    def generatre_bird(self,position,pre_position,post_position,diviation_angle,new_color=None):
 
         def z_axis_to_scale(z):
             return 0.25**(-z)
@@ -65,16 +65,8 @@ class Bird():
                 third_vect=Vect.prod_vect(wings_dir,next_direction)
                 base_bird=[wings_dir.copy(),next_direction.copy(),third_vect.copy()]
 
-                angle_coff=-1
-                if dt==0.1:
-                    angle_coff=-30
-                if dt==0.017:
-                    angle_coff=-100
-
-                angle_de_divation=Vect.angle_entre(direction,next_direction,base_bird)*angle_coff
-
-                wings_dir.rotation_arround_direction(angle_de_divation,base_bird)
-                third_vect.rotation_arround_direction(angle_de_divation,base_bird)
+                wings_dir.rotation_arround_direction(diviation_angle,base_bird)
+                third_vect.rotation_arround_direction(diviation_angle,base_bird)
 
                 base_bird=[wings_dir.copy(),next_direction.copy(),third_vect.copy()]
                 return base_bird
@@ -179,6 +171,78 @@ class Bird():
             n=int(2*l/(dt*(v_d_prj+v_a_prj)))
 
             return P_d,P_a,V_d,V_a,l,main_direc,n
+
+        def choose_mvt_base(main_direc,V_d,V_a):
+            v_init=None
+            if Vect.is_equal(Vect.prod_vect(V_d,main_direc),Vect(0,0,0)):
+                v_init=V_a.copy()
+            else:
+                v_init=V_d.copy()
+            
+            x_d,y_d,z_d=main_direc.array[0],main_direc.array[1],main_direc.array[2]
+            x_v,y_v,z_v=v_init.array[0],v_init.array[1],v_init.array[2]
+            x_n,y_n,z_n=y_d*z_v-z_d*y_v,z_d*x_v-x_d*z_v,x_d*y_v-y_d*x_v
+
+            x,y,z=None,None,None
+            nbr_zero_dirc_eq=0
+            if x_d==0:
+                nbr_zero_dirc_eq+=1
+            if y_d==0:
+                nbr_zero_dirc_eq+=1
+            if z_d==0:
+                nbr_zero_dirc_eq+=1
+
+            if nbr_zero_dirc_eq==2:
+                if x_d!=0:
+                    x=0.0
+                    if y_n!=0:
+                        z=1.0
+                        y=-z_n/y_n
+                    else :
+                        y=1.0
+                        z=0.0
+
+                elif y_d!=0:
+                    y=0.0
+                    if x_n!=0:
+                        z=1.0
+                        x=-z_n/x_n
+                    else :
+                        x=1.0
+                        z=0.0
+
+                else:
+                    z=0.0
+                    if x_n!=0:
+                        y=1.0
+                        x=-y_n/x_n
+                    else :
+                        x=1.0
+                        y=0.0
+
+            elif nbr_zero_dirc_eq==1:
+                if x_d==0:
+                    z=1.0
+                    y=-z_d/y_d
+                    x=-(y_n*y+z_n*z)/x_n
+
+                if y_d==0:
+                    z=1.0
+                    x=-z_d/x_d
+                    y=-(x_n*x+z_n*z)/y_n
+
+                if z_d==0:
+                    y=1.0
+                    x=-y_d/x_d
+                    z=-(x_n*x+y_n*y)/z_n
+            else :
+                z=1.0
+                y=(x_d*z_n-x_n*z_d)/(x_n*y_d-x_d*y_n)
+                x=-(x_d*y_n*y+x_d*z_n)/(x_d*x_n)
+
+            vec=Vect(x,y,z)
+            vec.array/=vec.norme()
+            return [main_direc,vec,Vect.prod_vect(main_direc,vec)]
 
         def vitesse_main_direction(V_d,V_a,l,n,base_mvt):
             v_1=Vect.prod_scalaire(V_d,base_mvt[0])
@@ -292,78 +356,9 @@ class Bird():
                     V+=[a*(dis-2*x1)]
                 
                 return V
-
-        def choose_mvt_base(main_direc,V_d,V_a):
-            v_init=None
-            if Vect.is_equal(Vect.prod_vect(V_d,main_direc),Vect(0,0,0)):
-                v_init=V_a.copy()
-            else:
-                v_init=V_d.copy()
-            
-            x_d,y_d,z_d=main_direc.array[0],main_direc.array[1],main_direc.array[2]
-            x_v,y_v,z_v=v_init.array[0],v_init.array[1],v_init.array[2]
-            x_n,y_n,z_n=y_d*z_v-z_d*y_v,z_d*x_v-x_d*z_v,x_d*y_v-y_d*x_v
-
-            x,y,z=None,None,None
-            nbr_zero_dirc_eq=0
-            if x_d==0:
-                nbr_zero_dirc_eq+=1
-            if y_d==0:
-                nbr_zero_dirc_eq+=1
-            if z_d==0:
-                nbr_zero_dirc_eq+=1
-
-            if nbr_zero_dirc_eq==2:
-                if x_d!=0:
-                    x=0.0
-                    if y_n!=0:
-                        z=1.0
-                        y=-z_n/y_n
-                    else :
-                        y=1.0
-                        z=0.0
-
-                elif y_d!=0:
-                    y=0.0
-                    if x_n!=0:
-                        z=1.0
-                        x=-z_n/x_n
-                    else :
-                        x=1.0
-                        z=0.0
-
-                else:
-                    z=0.0
-                    if x_n!=0:
-                        y=1.0
-                        x=-y_n/x_n
-                    else :
-                        x=1.0
-                        y=0.0
-
-            elif nbr_zero_dirc_eq==1:
-                if x_d==0:
-                    z=1.0
-                    y=-z_d/y_d
-                    x=-(y_n*y+z_n*z)/x_n
-
-                if y_d==0:
-                    z=1.0
-                    x=-z_d/x_d
-                    y=-(x_n*x+z_n*z)/y_n
-
-                if z_d==0:
-                    y=1.0
-                    x=-y_d/x_d
-                    z=-(x_n*x+y_n*y)/z_n
-            else :
-                z=1.0
-                y=(x_d*z_n-x_n*z_d)/(x_n*y_d-x_d*y_n)
-                x=-(x_d*y_n*y+x_d*z_n)/(x_d*x_n)
-
-            vec=Vect(x,y,z)
-            vec.array/=vec.norme()
-            return [main_direc,vec,Vect.prod_vect(main_direc,vec)]
+        
+        def diviation_angle():
+            pass
 
         P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
         base_mvt=choose_mvt_base(main_direc,V_d,V_a)
