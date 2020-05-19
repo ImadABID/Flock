@@ -10,13 +10,26 @@ class Test(Scene):
 
     def construct(self):
         b=Bird()
+        positions=[
+            [2.0*LEFT,2.0*RIGHT,0.5*IN+0.5*RIGHT,0.5*IN+0.5*RIGHT],
+            [2.0*RIGHT,3.0*RIGHT+3.0*UP,0.5*IN+0.5*RIGHT,0.1*UP],
+            [3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT],
+            [2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT]
+        ]
         P=[]
-        #P+=b.position_interpolation(2.0*LEFT,2.0*RIGHT,0.5*IN+0.5*RIGHT,0.5*IN+0.5*RIGHT)
-        P+=b.position_interpolation(2.0*RIGHT,3.0*RIGHT+3.0*UP,0.5*IN+0.5*RIGHT,0.1*UP)
-        #P+=b.position_interpolation(3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT)
-        #P+=b.position_interpolation(2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT)
+        A=[]
+        f=open("index.tracker","w")
+        for p in positions:
+            tmp_P,tmp_A=b.position_interpolation(*p)
+            #tmp_A=tmp_A[1:len(tmp_A)-1]
+            tmp_A+=[0]
+            P+=tmp_P
+            A+=tmp_A
+            f.write(str(len(tmp_P))+'='+str(len(tmp_A))+'\n')
+        f.close()
+
         for i in range(1,len(P)-1):
-            obj=b.generatre_bird(P[i],P[i-1],P[i+1])
+            obj=b.generatre_bird(P[i],P[i-1],P[i+1],A[i])
             self.add(*obj)
             self.wait(dt)
             self.remove(*obj)
@@ -357,8 +370,31 @@ class Bird():
                 
                 return V
         
-        def diviation_angle():
-            pass
+        def diviation_angle(dir,V_d,V_a,n,base_mvt):
+            def behavior(dir,V_d,V_a,n,base_mvt):
+                if Vect.prod_scalaire(dir,Vect(0,1,0))>=0:
+                    return False #for flapping
+                return True #for gliding
+
+            def flapping(dir,V_d,V_a,n,base_mvt):
+                pass
+            
+            def gliding(dir,V_d,V_a,n,base_mvt):
+                Angles=[]
+                moy_ang=Vect.angle_entre(V_d,V_a,base_mvt)
+                if Vect.angle_entre(V_d,base_mvt[0],base_mvt)*Vect.angle_entre(V_a,base_mvt[0],base_mvt)>0:
+                    moy_ang+=math.pi
+                n_2=int(n/2)
+                a=moy_ang/n_2
+                for i in range(n_2):
+                    Angles+=[i*a]
+                for i in range(n-n_2):
+                    Angles+=[moy_ang-i*a]
+
+                return Angles+[0]
+
+            return gliding(dir,V_d,V_a,n,base_mvt)
+
 
         P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
         base_mvt=choose_mvt_base(main_direc,V_d,V_a)
@@ -385,7 +421,7 @@ class Bird():
         positions=[]
         for p in Positions:
             positions+=[p.array]
-        return positions
+        return positions,diviation_angle(dir,V_d,V_a,n,base_mvt)
 
 #============================= Vect class =================================================
 
