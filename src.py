@@ -2,7 +2,7 @@ from manimlib.imports import *
 from random import randrange
 import math
 
-dt=0.017 #60 fps
+#dt=0.017 #60 fps
 dt=0.1 #test
 
 #============================= Manim Test class =================================================
@@ -10,24 +10,13 @@ class Test(Scene):
 
     def construct(self):
         b=Bird()
-        P=b.position_interpolation(2*LEFT,2*RIGHT,0.5*IN+0.5*RIGHT,0.5*OUT+0.5*RIGHT)
-        #P=b.position_interpolation(2*LEFT,2*RIGHT,0.5*UP+0.5*RIGHT,0.5*DOWN+0.5*RIGHT)
-        #P=b.position_interpolation(2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*RIGHT+OUT)
-        for i in range(len(P)):
-            p=P[i]
-            pp=None
-            pn=None
-            if i==0:
-                pp=p
-            else:
-                pp=P[i-1]
-        
-            if i==len(P)-1:
-                pn=p
-            else:
-                pn=P[i+1]
-
-            obj=b.generatre_bird(p,pp,pn)
+        P=[]
+        #P+=b.position_interpolation(2.0*LEFT,2.0*RIGHT,0.5*IN+0.5*RIGHT,0.5*IN+0.5*RIGHT)
+        P+=b.position_interpolation(2.0*RIGHT,3.0*RIGHT+3.0*UP,0.5*IN+0.5*RIGHT,0.1*UP)
+        #P+=b.position_interpolation(3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT)
+        #P+=b.position_interpolation(2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT)
+        for i in range(1,len(P)-1):
+            obj=b.generatre_bird(P[i],P[i-1],P[i+1])
             self.add(*obj)
             self.wait(dt)
             self.remove(*obj)
@@ -44,7 +33,7 @@ class Bird():
     def generatre_bird(self,position,pre_position,post_position,new_color=None):
 
         def z_axis_to_scale(z):
-            return 0.5**(-z)
+            return 0.25**(-z)
 
         def wings_objects(position,pre_position,post_position):
 
@@ -62,8 +51,6 @@ class Bird():
                     return screen_base
                 next_direction.scalaire_mult(1/n)
 
-                angle_de_divation=Vect.angle_entre(direction,next_direction)*30
-
                 x,z=0.0,0.0
                 if next_direction.array[0]!=0:
                     x=-next_direction.array[2]/next_direction.array[0]
@@ -77,6 +64,14 @@ class Bird():
                 wings_dir.array/=wings_dir.norme()
                 third_vect=Vect.prod_vect(wings_dir,next_direction)
                 base_bird=[wings_dir.copy(),next_direction.copy(),third_vect.copy()]
+
+                angle_coff=-1
+                if dt==0.1:
+                    angle_coff=-30
+                if dt==0.017:
+                    angle_coff=-100
+
+                angle_de_divation=Vect.angle_entre(direction,next_direction,base_bird)*angle_coff
 
                 wings_dir.rotation_arround_direction(angle_de_divation,base_bird)
                 third_vect.rotation_arround_direction(angle_de_divation,base_bird)
@@ -111,7 +106,7 @@ class Bird():
             pts_2D=pts_3D_to2D(wings_pts(position,pre_position,post_position))
             wings=Polygon(
                 *pts_2D,
-                color=self.color,fill_color=self.color,fill_opacity=1,stroke_width=10
+                color=self.color,fill_color=self.color,fill_opacity=1,stroke_width=5,stroke_color=self.color
             )
             return [wings]
 
@@ -139,7 +134,7 @@ class Bird():
                 10*LEFT+100*l*DOWN,10*RIGHT+100*l*DOWN,80*l*DOWN,
                 color=self.color,fill_color=self.color,fill_opacity=1
             )
-            angle=Vect.angle_entre(Vect(0,1,0),direction)
+            angle=Vect.angle_entre(Vect(0.0,1.0,0.0),direction,[Vect(1.0,0.0,0.0),Vect(0.0,1.0,0.0),Vect(0.0,0.0,1.0)])
             head.rotate(angle,about_point=position)
             body.rotate(angle,about_point=position)
             tail.rotate(angle,about_point=position)
@@ -240,7 +235,7 @@ class Bird():
                     dis+=d
                     V_rad_1_scal+=[v3+a*(dis-x2)]
                 
-                a=v2/(l-x)
+                a=v2/(l-x3)
                 while dis<l:
                     dis+=d
                     V_rad_1_scal+=[a*(dis-x3)]
@@ -407,6 +402,9 @@ class Vect():
         return Vect(self.array[0],self.array[1],0)
 
     def norme(self):
+        f=open("error.tracker",'w')
+        f.write(self.str())
+        f.close()
         return math.sqrt(
             self.array[0]**2+
             self.array[1]**2+
@@ -474,9 +472,12 @@ class Vect():
             u.array[0]*v.array[1]-u.array[1]*v.array[0])
 
     @staticmethod
-    def angle_entre(u,v):
+    def angle_entre(u,v,base):
         u_c=u.copy()
         v_c=v.copy()
+        v_extra=base[2].copy()
+        v_extra.scalaire_mult(Vect.prod_scalaire(v_c,base[2]))
+        v_c=Vect.soustraction(v_c,v_extra)
         p_s=Vect.prod_scalaire(u_c,v_c)
         n_p=u_c.norme()*v_c.norme()
         if n_p==0:
@@ -493,6 +494,6 @@ class Vect():
 
         tetha=math.acos(p_s)
         u_vec_v=Vect.prod_vect(u_c,v_c)
-        if Vect.prod_scalaire(u_vec_v,Vect(0,0,1))<0:
+        if Vect.prod_scalaire(u_vec_v,base[2])<0:
             return -tetha
         return tetha
