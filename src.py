@@ -2,31 +2,29 @@ from manimlib.imports import *
 from random import randrange
 import math
 
-dt=0.017 #60 fps
-#dt=0.1 #test
+#dt=0.017 #60 fps
+dt=0.1 #test
 
 #============================= Manim Test class =================================================
 class Test(Scene):
 
     def construct(self):
         b=Bird()
-        positions=[
-            [2.0*LEFT,2.0*RIGHT,0.5*IN+0.5*RIGHT,0.5*IN+0.5*RIGHT],
+        #positions=[
+        #    [2.0*LEFT,2.0*RIGHT,0.5*IN+0.5*RIGHT,0.5*IN+0.5*RIGHT],
             #[2.0*RIGHT,3.0*RIGHT+3.0*UP,0.5*IN+0.5*RIGHT,0.1*UP],
             #[3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT],
             #[2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT]
-        ]
+        #
+        positions=b.aleatoire_path(Vect(0.0,0.0,0.0),Vect(1.0,0.0,0.0),duration=4)
         P=[]
         A=[]
-        f=open("index.tracker","w")
         for p in positions:
             tmp_P,tmp_A=b.position_interpolation(*p)
             #tmp_A=tmp_A[1:len(tmp_A)-1]
             tmp_A+=[0]
             P+=tmp_P
             A+=tmp_A
-            f.write(str(len(tmp_P))+'='+str(len(tmp_A))+'\n')
-        f.close()
 
         for i in range(1,len(P)-1):
             obj=b.generatre_bird(P[i],P[i-1],P[i+1],A[i])
@@ -167,6 +165,15 @@ class Bird():
         '''
 
         def verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a):
+            #f=open("verf.tracker",'a')
+            #f.write("-----------------------------------\n")
+            #f.write("FRAME_WIDTH = "+str(FRAME_WIDTH))
+            #f.write("\nFRAME_HEIGHT = "+str(FRAME_HEIGHT))
+            #f.write('\nPd = '+str(p_d)+"\nVd = ")
+            #f.write(str(v_d)+"\nPa = ")
+            #f.write(str(p_a)+"\nVa = ")
+            #f.write(str(v_a)+"\n")
+            #f.close()
             if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
                 raise ValueError("La position de depart c'est la position d'arrive")
             P_d=Vect(p_d[0],p_d[1],p_d[2])
@@ -181,12 +188,14 @@ class Bird():
             v_d_prj=Vect.prod_scalaire(V_d,main_direc)
             v_a_prj=Vect.prod_scalaire(V_a,main_direc)
             if v_d_prj<=0:
-                raise ValueError("Le vitesse de départ ne suit pas la direction principale")
+                raise ValueError("La vitesse de départ ne suit pas la direction principale")
             if v_a_prj<=0:
-                raise ValueError("Le vitesse d'arrive ne suit pas la direction principale")
+                raise ValueError("La vitesse d'arrive ne suit pas la direction principale")
 
             n=int(2*l/(dt*(v_d_prj+v_a_prj)))
-
+            f=open("e.spee","a")
+            f.write("\n"+str(n))
+            f.close()
             return P_d,P_a,V_d,V_a,l,main_direc,n
 
         def choose_mvt_base(main_direc,V_d,V_a):
@@ -389,11 +398,13 @@ class Bird():
                 if Vect.angle_entre(V_d,base_mvt[0],base_mvt)*Vect.angle_entre(V_a,base_mvt[0],base_mvt)>0:
                     moy_ang+=math.pi
                 n_2=int(n/2)
-                a=moy_ang/n_2
-                for i in range(n_2):
-                    Angles+=[i*a]
+                if n_2!=0:
+                    a=moy_ang/n_2
+                    for i in range(n_2):
+                        Angles+=[i*a]
+                a=-moy_ang/(n-n_2)
                 for i in range(n-n_2):
-                    Angles+=[moy_ang-i*a]
+                    Angles+=[moy_ang+i*a]
 
                 return Angles+[0]
 
@@ -401,6 +412,8 @@ class Bird():
 
 
         P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
+        if n==0:
+            return [],[]
         base_mvt=choose_mvt_base(main_direc,V_d,V_a)
 
         Vn=vitesse_main_direction(V_d,V_a,l,n,base_mvt)
@@ -427,6 +440,134 @@ class Bird():
             positions+=[p.array]
         return positions,diviation_angle(dir,V_d,V_a,n,base_mvt)
 
+    def aleatoire_path(self,P_0,V_0,duration=30):
+        def next_direction_and_next_pts(P_0,V_0):
+            def out_of_screen(P_0,next_dir):
+
+                def t_max_possible(P_0,a,b,c):
+                    T_max_possible=[]
+
+                    if a>0:
+                        T_max_possible+=[((0.5*FRAME_WIDTH-P_0.array[0])/a,0)]
+                    if a<0:
+                        T_max_possible+=[((-0.5*FRAME_WIDTH-P_0.array[0])/a,0)]
+
+                    if b>0:
+                        T_max_possible+=[((0.5*FRAME_HEIGHT-P_0.array[1])/b,1)]
+                    if b<0:
+                        T_max_possible+=[((-0.5*FRAME_HEIGHT-P_0.array[1])/b,1)]
+
+                    if c>0:
+                        T_max_possible+=[((-FRAME_WIDTH-P_0.array[2])/c,2)]
+                    if c<0:
+                        T_max_possible+=[(-P_0.array[2]/c,2)]
+
+                    return T_max_possible
+
+                def is_it_t_max(t,a,b,c,P_0):
+                    x=a*t[0]+P_0.array[0]
+                    y=b*t[0]+P_0.array[1]
+                    z=c*t[0]+P_0.array[2]
+
+                    err=0.000001
+
+                    if t[1]!=0 and (x+err>0.5*FRAME_WIDTH or x-err<-0.5*FRAME_WIDTH):
+                        return False
+                    if t[1]!=1 and (y+err>0.5*FRAME_HEIGHT or y-err<-0.5*FRAME_HEIGHT):
+                        return False
+                    if t[1]!=2 and (z+err>1 or z-err<-FRAME_WIDTH):
+                        return False
+
+                    return True
+
+                a,b,c = next_dir.array[0],next_dir.array[1],next_dir.array[2]
+                T_max_possible=t_max_possible(P_0,a,b,c)
+                for t in T_max_possible:
+                    if is_it_t_max(t,a,b,c,P_0):
+                        return Vect(
+                            a*t[0]+P_0.array[0],
+                            b*t[0]+P_0.array[1],
+                            c*t[0]+P_0.array[2]
+                        )
+                raise Exception("Can't find P_MAX")
+
+            base=V_0.BaseOrthoNormer()#[--,V0,--]
+            base1=[base[2].copy(),base[0].copy(),base[1].copy()]
+            base2=[base[1].copy(),base[2].copy(),base[0].copy()]
+            m=int(math.pi/2*1000)
+            ang1=randrange(-m,m)/1000
+            ang2=randrange(-m,m)/1000
+            vec1=V_0.copy()
+            vec2=V_0.copy()
+            vec1.rotation_arround_direction(ang1,base1)
+            vec2.rotation_arround_direction(ang2,base2)
+            
+            next_dir=Vect.somme(vec1,vec2)
+            next_dir.array/=next_dir.norme()
+            P_MAX=out_of_screen(P_0,next_dir)
+            l_max_vec=Vect.soustraction(P_MAX,P_0)
+            l_max=l_max_vec.norme()
+            l=randrange(1,int(l_max*1000)+1)/1000
+            l_vec=next_dir.copy()
+            l_vec.scalaire_mult(l)
+            P_next=Vect.somme(P_0,l_vec)
+            f=open("next.report",'a')
+            f.write("\n---------------\nFRAME_WIDTH = "+str(FRAME_WIDTH))
+            f.write("\nFRAME_HEIGHT = "+str(FRAME_HEIGHT))
+            f.write("\nnext_dir = "+next_dir.str())
+            f.write("\nl_max_vec.next_dir = "+str(Vect.prod_scalaire(l_max_vec,next_dir)))
+            f.write("\nl_max_vec^next_dir = "+Vect.prod_vect(l_max_vec,next_dir).str())
+            f.write("\nl_max = "+str(l_max))
+            f.write("\nl = "+str(l))
+            f.write("\nP_0 = "+P_0.str())
+            f.write("\nl_vec = "+l_vec.str())
+            f.write("\nP_next = "+P_next.str())
+            f.write("\nP_MAX = "+P_MAX.str())
+            f.close()
+            return next_dir,P_next
+
+        def next_vitesse(direction,P_1):
+            '''
+            Le choix de la vertical_vitesse n'est pas correcr, car the bird tombe est il ne peut pas monter.
+            penser à choisir des vitesses qui pousse the birds loin des frontières.
+            '''
+            def vertical_vitesse(direction,P_1):
+                vy=math.sqrt(2*9.81*(0.5*FRAME_HEIGHT-P_1.array[1]))
+                if Vect.prod_scalaire(direction,Vect(0,1,0))<0:
+                    vy*=-1
+                return vy
+
+            vy=vertical_vitesse(direction,P_1)
+            a,b,c=direction.array[0],direction.array[1],direction.array[2]
+            if a==0:
+                if c==0:
+                    if b*vy<0:
+                        vy*=-1
+                    return Vect(0,vy,0)
+                else:
+                    vz=-1/c*(vy*b)+0.1
+                    if c<0:
+                        vz*=-1
+                    return Vect(0,vy,vz)
+
+            vx=-1/a*(vy*b)+0.1
+            if a<0:
+                vx*=-1
+            return Vect(vx,vy,0)
+
+        P=[]
+        A=[]
+        Pd=P_0
+        Vd=V_0
+        n=int(duration/dt)
+        while(len(P)<n):
+            next_dir,Pa=next_direction_and_next_pts(Pd,Vd)
+            Va=next_vitesse(next_dir,Pd)
+            P+=[self.position_interpolation(Pd.array,Pa.array,Vd.array,Va.array)]
+            Pd,Vd=Pa,Va
+
+        return P[:n]
+
 #============================= Vect class =================================================
 
 class Vect():
@@ -437,9 +578,6 @@ class Vect():
         return Vect(self.array[0],self.array[1],0)
 
     def norme(self):
-        f=open("error.tracker",'w')
-        f.write(self.str())
-        f.close()
         return math.sqrt(
             self.array[0]**2+
             self.array[1]**2+
@@ -459,7 +597,7 @@ class Vect():
         V=np.dot(np.linalg.inv(passage),self.array)
         return Vect(V[0],V[1],V[2])
 
-    def rotation_arround_direction(self,angle,base_bird):
+    def rotation_arround_direction(self,angle,base_bird):#arround base_bird[1]
         Mat_Rot=np.array([
             np.array([np.cos(angle),0,np.sin(angle)]),
             np.array([0,1,0]),
@@ -474,6 +612,32 @@ class Vect():
         )
         rotated_vec_in_screen_base=rotated_vec_in_bird_base.coordinte_in_screen_base(base_bird)
         self.array=rotated_vec_in_screen_base.array
+
+    def BaseOrthoNormer(self):#self is the seconde vect
+        a,b,c=self.array[0],self.array[1],self.array[2]
+        x,y,z=None,None,None
+        
+        if a!=0:
+            z=0
+            y=1
+            x=-b/a
+
+        elif b!=0:
+            x=0
+            z=1
+            y=-c/b
+        
+        elif c!=0:
+            x=0
+            y=1
+            z=-b/c
+        
+        per=Vect(x,y,z)
+        per.array/=per.norme()
+        slef=self.copy()
+        slef.array/=slef.norme()
+
+        return [per,slef,Vect.prod_vect(per,slef)]
 
     def copy(self):
         return Vect(self.array[0],self.array[1],self.array[2])
