@@ -36,7 +36,7 @@ class Bird():
     def generatre_bird(self,position,pre_position,post_position,diviation_angle,new_color=None):
 
         def z_axis_to_scale(z):
-            return 0.25**(-z)
+            return 0.5**(-z)
 
         def wings_objects(position,pre_position,post_position):
 
@@ -157,6 +157,9 @@ class Bird():
         '''
 
         def verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a):
+            f=open("position.tracker","a")
+            f.write(str(p_a)+"\n")
+            f.close()
             if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
                 raise ValueError("La position de depart c'est la position d'arrive")
             P_d=Vect(p_d[0],p_d[1],p_d[2])
@@ -180,7 +183,6 @@ class Bird():
 
         def choose_mvt_base(main_direc,V_d,V_a):
             v_init=None
-            f=open("mvt_base.verf",'a')
             if Vect.is_equal(Vect.prod_vect(V_d,main_direc),Vect(0,0,0)):
                 if Vect.is_equal(Vect.prod_vect(V_a,main_direc),Vect(0,0,0)):
                     raise Exception("main_direc,V_d,V_a sont colinéaires")
@@ -364,7 +366,7 @@ class Bird():
             positions+=[p.array]
         return positions,diviation_angle(dir,V_d,V_a,n,base_mvt)
 
-    def aleatoire_path(self,P_0,V_0,duration=20):
+    def aleatoire_path(self,P_0,V_0,duration=120):
         def next_direction_and_next_pts(P_0,V_0):
             def out_of_screen(P_0,next_dir):
 
@@ -382,9 +384,9 @@ class Bird():
                         T_max_possible+=[((-0.5*FRAME_HEIGHT-P_0.array[1])/b,1)]
 
                     if c>0:
-                        T_max_possible+=[((-FRAME_WIDTH-P_0.array[2])/c,2)]
-                    if c<0:
                         T_max_possible+=[(-P_0.array[2]/c,2)]
+                    if c<0:
+                        T_max_possible+=[((-FRAME_WIDTH-P_0.array[2])/c,2)]
 
                     return T_max_possible
 
@@ -393,18 +395,19 @@ class Bird():
                     y=b*t[0]+P_0.array[1]
                     z=c*t[0]+P_0.array[2]
 
-                    err=0.000001
+                    err=0.001
 
-                    if t[1]!=0 and (x+err>0.5*FRAME_WIDTH or x-err<-0.5*FRAME_WIDTH):
+                    if t[1]!=0 and (x-err>0.5*FRAME_WIDTH or x+err<-0.5*FRAME_WIDTH):
                         return False
-                    if t[1]!=1 and (y+err>0.5*FRAME_HEIGHT or y-err<-0.5*FRAME_HEIGHT):
+                    if t[1]!=1 and (y-err>0.5*FRAME_HEIGHT or y+err<-0.5*FRAME_HEIGHT):
                         return False
-                    if t[1]!=2 and (z+err>0 or z-err<-FRAME_WIDTH):
+                    if t[1]!=2 and (z-err>0 or z+err<-FRAME_WIDTH):
                         return False
 
                     return True
 
                 a,b,c = next_dir.array[0],next_dir.array[1],next_dir.array[2]
+
                 T_max_possible=t_max_possible(P_0,a,b,c)
                 for t in T_max_possible:
                     if is_it_t_max(t,a,b,c,P_0):
@@ -413,7 +416,8 @@ class Bird():
                             b*t[0]+P_0.array[1],
                             c*t[0]+P_0.array[2]
                         )
-                raise Exception("Can't find P_MAX")
+
+                raise Exception("Can't find P_MAX :\n\tP_0\t\t= "+P_0.str()+"\n\tnext_dir\t= "+next_dir.str())
 
             base=V_0.BaseOrthoNormer()#[--,V0,--]
             base1=[base[2].copy(),base[0].copy(),base[1].copy()]
@@ -431,6 +435,8 @@ class Bird():
             P_MAX=out_of_screen(P_0,next_dir)
             l_max_vec=Vect.soustraction(P_MAX,P_0)
             l_max=l_max_vec.norme()*0.8
+            if l_max>1:
+                l_max=1
             l=randrange(1,int(l_max*1000)+1)/1000
             l_vec=next_dir.copy()
             l_vec.scalaire_mult(l)
