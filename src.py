@@ -16,15 +16,7 @@ class Test(Scene):
             #[3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT],
             #[2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT]
         #
-        positions=b.aleatoire_path(Vect(0.0,0.0,0.0),Vect(1.0,0.0,0.0),duration=4)
-        P=[]
-        A=[]
-        for p in positions:
-            tmp_P,tmp_A=b.position_interpolation(*p)
-            #tmp_A=tmp_A[1:len(tmp_A)-1]
-            tmp_A+=[0]
-            P+=tmp_P
-            A+=tmp_A
+        P,A=b.aleatoire_path(Vect(0.0,0.0,0.0),Vect(1.0,0.0,0.0))
 
         for i in range(1,len(P)-1):
             obj=b.generatre_bird(P[i],P[i-1],P[i+1],A[i])
@@ -165,15 +157,6 @@ class Bird():
         '''
 
         def verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a):
-            #f=open("verf.tracker",'a')
-            #f.write("-----------------------------------\n")
-            #f.write("FRAME_WIDTH = "+str(FRAME_WIDTH))
-            #f.write("\nFRAME_HEIGHT = "+str(FRAME_HEIGHT))
-            #f.write('\nPd = '+str(p_d)+"\nVd = ")
-            #f.write(str(v_d)+"\nPa = ")
-            #f.write(str(p_a)+"\nVa = ")
-            #f.write(str(v_a)+"\n")
-            #f.close()
             if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
                 raise ValueError("La position de depart c'est la position d'arrive")
             P_d=Vect(p_d[0],p_d[1],p_d[2])
@@ -193,82 +176,22 @@ class Bird():
                 raise ValueError("La vitesse d'arrive ne suit pas la direction principale")
 
             n=int(2*l/(dt*(v_d_prj+v_a_prj)))
-            f=open("e.spee","a")
-            f.write("\n"+str(n))
-            f.close()
             return P_d,P_a,V_d,V_a,l,main_direc,n
 
         def choose_mvt_base(main_direc,V_d,V_a):
             v_init=None
+            f=open("mvt_base.verf",'a')
             if Vect.is_equal(Vect.prod_vect(V_d,main_direc),Vect(0,0,0)):
+                if Vect.is_equal(Vect.prod_vect(V_a,main_direc),Vect(0,0,0)):
+                    raise Exception("main_direc,V_d,V_a sont colinéaires")
                 v_init=V_a.copy()
             else:
                 v_init=V_d.copy()
             
-            x_d,y_d,z_d=main_direc.array[0],main_direc.array[1],main_direc.array[2]
-            x_v,y_v,z_v=v_init.array[0],v_init.array[1],v_init.array[2]
-            x_n,y_n,z_n=y_d*z_v-z_d*y_v,z_d*x_v-x_d*z_v,x_d*y_v-y_d*x_v
+            vec_n=Vect.prod_vect(main_direc,v_init)
 
-            x,y,z=None,None,None
-            nbr_zero_dirc_eq=0
-            if x_d==0:
-                nbr_zero_dirc_eq+=1
-            if y_d==0:
-                nbr_zero_dirc_eq+=1
-            if z_d==0:
-                nbr_zero_dirc_eq+=1
-
-            if nbr_zero_dirc_eq==2:
-                if x_d!=0:
-                    x=0.0
-                    if y_n!=0:
-                        z=1.0
-                        y=-z_n/y_n
-                    else :
-                        y=1.0
-                        z=0.0
-
-                elif y_d!=0:
-                    y=0.0
-                    if x_n!=0:
-                        z=1.0
-                        x=-z_n/x_n
-                    else :
-                        x=1.0
-                        z=0.0
-
-                else:
-                    z=0.0
-                    if x_n!=0:
-                        y=1.0
-                        x=-y_n/x_n
-                    else :
-                        x=1.0
-                        y=0.0
-
-            elif nbr_zero_dirc_eq==1:
-                if x_d==0:
-                    z=1.0
-                    y=-z_d/y_d
-                    x=-(y_n*y+z_n*z)/x_n
-
-                if y_d==0:
-                    z=1.0
-                    x=-z_d/x_d
-                    y=-(x_n*x+z_n*z)/y_n
-
-                if z_d==0:
-                    y=1.0
-                    x=-y_d/x_d
-                    z=-(x_n*x+y_n*y)/z_n
-            else :
-                z=1.0
-                y=(x_d*z_n-x_n*z_d)/(x_n*y_d-x_d*y_n)
-                x=-(x_d*y_n*y+x_d*z_n)/(x_d*x_n)
-
-            vec=Vect(x,y,z)
-            vec.array/=vec.norme()
-            return [main_direc,vec,Vect.prod_vect(main_direc,vec)]
+            vec=Vect.prod_vect(main_direc,vec_n)
+            return [main_direc.copy(),vec,Vect.prod_vect(main_direc,vec)]
 
         def vitesse_main_direction(V_d,V_a,l,n,base_mvt):
             v_1=Vect.prod_scalaire(V_d,base_mvt[0])
@@ -382,7 +305,7 @@ class Bird():
                     V+=[a*(dis-2*x1)]
                 
                 return V
-        
+
         def diviation_angle(dir,V_d,V_a,n,base_mvt):
             def behavior(dir,V_d,V_a,n,base_mvt):
                 if Vect.prod_scalaire(dir,Vect(0,1,0))>=0:
@@ -414,6 +337,7 @@ class Bird():
         P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
         if n==0:
             return [],[]
+        # Traiter le cas ou main_direc,V_d,V_a sont colinéaires
         base_mvt=choose_mvt_base(main_direc,V_d,V_a)
 
         Vn=vitesse_main_direction(V_d,V_a,l,n,base_mvt)
@@ -440,7 +364,7 @@ class Bird():
             positions+=[p.array]
         return positions,diviation_angle(dir,V_d,V_a,n,base_mvt)
 
-    def aleatoire_path(self,P_0,V_0,duration=30):
+    def aleatoire_path(self,P_0,V_0,duration=20):
         def next_direction_and_next_pts(P_0,V_0):
             def out_of_screen(P_0,next_dir):
 
@@ -475,7 +399,7 @@ class Bird():
                         return False
                     if t[1]!=1 and (y+err>0.5*FRAME_HEIGHT or y-err<-0.5*FRAME_HEIGHT):
                         return False
-                    if t[1]!=2 and (z+err>1 or z-err<-FRAME_WIDTH):
+                    if t[1]!=2 and (z+err>0 or z-err<-FRAME_WIDTH):
                         return False
 
                     return True
@@ -501,59 +425,126 @@ class Bird():
             vec2=V_0.copy()
             vec1.rotation_arround_direction(ang1,base1)
             vec2.rotation_arround_direction(ang2,base2)
-            
+
             next_dir=Vect.somme(vec1,vec2)
             next_dir.array/=next_dir.norme()
             P_MAX=out_of_screen(P_0,next_dir)
             l_max_vec=Vect.soustraction(P_MAX,P_0)
-            l_max=l_max_vec.norme()
+            l_max=l_max_vec.norme()*0.8
             l=randrange(1,int(l_max*1000)+1)/1000
             l_vec=next_dir.copy()
             l_vec.scalaire_mult(l)
             P_next=Vect.somme(P_0,l_vec)
-            f=open("next.report",'a')
-            f.write("\n---------------\nFRAME_WIDTH = "+str(FRAME_WIDTH))
-            f.write("\nFRAME_HEIGHT = "+str(FRAME_HEIGHT))
-            f.write("\nnext_dir = "+next_dir.str())
-            f.write("\nl_max_vec.next_dir = "+str(Vect.prod_scalaire(l_max_vec,next_dir)))
-            f.write("\nl_max_vec^next_dir = "+Vect.prod_vect(l_max_vec,next_dir).str())
-            f.write("\nl_max = "+str(l_max))
-            f.write("\nl = "+str(l))
-            f.write("\nP_0 = "+P_0.str())
-            f.write("\nl_vec = "+l_vec.str())
-            f.write("\nP_next = "+P_next.str())
-            f.write("\nP_MAX = "+P_MAX.str())
-            f.close()
             return next_dir,P_next
 
         def next_vitesse(direction,P_1):
-            '''
-            Le choix de la vertical_vitesse n'est pas correcr, car the bird tombe est il ne peut pas monter.
-            penser à choisir des vitesses qui pousse the birds loin des frontières.
-            '''
-            def vertical_vitesse(direction,P_1):
-                vy=math.sqrt(2*9.81*(0.5*FRAME_HEIGHT-P_1.array[1]))
-                if Vect.prod_scalaire(direction,Vect(0,1,0))<0:
-                    vy*=-1
-                return vy
+            def la_plus_proche(X_MAX,Y_MAX,px,py,pz):
+                d=[]
+                if px>X_MAX*0.8:
+                    d+=[(X_MAX-px,0)]
+                if px<-X_MAX*0.8:
+                    d+=[(px-X_MAX,1)]
+                if py>Y_MAX*0.8:
+                    d+=[(Y_MAX-py,2)]
+                if px<-Y_MAX*0.8:
+                    d+=[(py-Y_MAX,3)]
+                if pz>FRAME_WIDTH*0.8:
+                    d+=[(FRAME_WIDTH-pz,4)]
+                if pz<FRAME_WIDTH*0.2:
+                    d+=[(pz,5)]
+                
+                d_min=FRAME_WIDTH+10
+                i_min=None
+                for l in d:
+                    if l[0]<d_min:
+                        d_min=l[0]
+                        i_min=l[1]
+                if i_min==None:
+                    i_min=randrange(0,6)
+                return i_min
 
-            vy=vertical_vitesse(direction,P_1)
-            a,b,c=direction.array[0],direction.array[1],direction.array[2]
-            if a==0:
-                if c==0:
-                    if b*vy<0:
+            def calcule_vitesse(i_choice,a,b,c,V_max):
+                vx,vy,vz=None,None,None
+                if i_choice==0 or i_choice==1:
+                    vx=randrange(0,V_max*1000)/1000
+                    if vx==0:
+                        vx=0.1
+                    if i_choice==1:
+                        vx*=-1
+                    if b!=0:
+                        vz=0
+                        vy=-a/b*vx
+                        if b>0:
+                            vy+=randrange(0,V_max*1000)/1000
+                        else:
+                            vy-=randrange(0,V_max*1000)/1000
+                    elif c!=0:
+                        vy=0
+                        vz=-a/c*vx
+                        if c>0:
+                            vz+=randrange(0,V_max*1000)/1000
+                        else:
+                            vz-=randrange(0,V_max*1000)/1000
+                    else:
+                        vy=0
+                        vz=0
+                
+                if i_choice==2 or i_choice==3:
+                    vy=randrange(0,V_max*1000)/1000
+                    if vy==0:
+                        vy=0.1
+                    if i_choice==3:
                         vy*=-1
-                    return Vect(0,vy,0)
-                else:
-                    vz=-1/c*(vy*b)+0.1
-                    if c<0:
-                        vz*=-1
-                    return Vect(0,vy,vz)
+                    if a!=0:
+                        vz=0
+                        vx=-b/a*vy
+                        if a>0:
+                            vx+=randrange(0,V_max*1000)/1000
+                        else:
+                            vx-=randrange(0,V_max*1000)/1000
+                    elif c!=0:
+                        vx=0
+                        vz=-b/c*vy
+                        if c>0:
+                            vz+=randrange(0,V_max*1000)/1000
+                        else:
+                            vz-=randrange(0,V_max*1000)/1000
+                    else:
+                        vx=0
+                        vz=0
 
-            vx=-1/a*(vy*b)+0.1
-            if a<0:
-                vx*=-1
-            return Vect(vx,vy,0)
+                if i_choice==4 or i_choice==5:
+                    vz=randrange(0,V_max*1000)/1000
+                    if vz==0:
+                        vz=0.1
+                    if i_choice==5:
+                        vz*=-1
+                    if b!=0:
+                        vx=0
+                        vy=-c/b*vz
+                        if b>0:
+                            vy+=randrange(0,V_max*1000)/1000
+                        else:
+                            vy-=randrange(0,V_max*1000)/1000
+                    elif a!=0:
+                        vy=0
+                        vx=-c/a*vz
+                        if a>0:
+                            vx+=randrange(0,V_max*1000)/1000
+                        else:
+                            vx-=randrange(0,V_max*1000)/1000
+                    else:
+                        vx=0
+                        vy=0
+
+                return Vect(vx,vy,vz)
+
+            V_max=0.5
+            a,b,c=direction.array[0],direction.array[1],direction.array[2]
+            px,py,pz=P_1.array[0],P_1.array[1],P_1.array[2]
+            X_MAX=FRAME_WIDTH/2
+            Y_MAX=FRAME_HEIGHT/2
+            return calcule_vitesse(la_plus_proche(X_MAX,Y_MAX,px,py,pz),a,b,c,V_max)
 
         P=[]
         A=[]
@@ -563,10 +554,12 @@ class Bird():
         while(len(P)<n):
             next_dir,Pa=next_direction_and_next_pts(Pd,Vd)
             Va=next_vitesse(next_dir,Pd)
-            P+=[self.position_interpolation(Pd.array,Pa.array,Vd.array,Va.array)]
+            PA=self.position_interpolation(Pd.array,Pa.array,Vd.array,Va.array)
+            P+=PA[0]
+            A+=PA[1]
             Pd,Vd=Pa,Va
 
-        return P[:n]
+        return P[:n],A[:n]
 
 #============================= Vect class =================================================
 
