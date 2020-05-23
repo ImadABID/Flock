@@ -16,7 +16,8 @@ class Test(Scene):
             #[3.0*RIGHT,1.0*LEFT+2.0*DOWN,0.5*DOWN+0.5*LEFT,0.5*UP+0.5*LEFT],
             #[2*DOWN+LEFT,2*UP+IN,0.5*UP+IN+RIGHT,0.5*UP+0.5*LEFT+OUT]
         #
-        P,A=b.aleatoire_path(Vect(0.0,0.0,0.0),Vect(1.0,0.0,0.0))
+        #P,A=b.aleatoire_path(Vect(0.0,0.0,0.0),Vect(0.1,0.1,-0.1))
+        P,A=b.position_interpolation(0.0*IN,14.0*IN,LEFT+IN,RIGHT+IN)
 
         for i in range(1,len(P)-1):
             obj=b.generatre_bird(P[i],P[i-1],P[i+1],A[i])
@@ -158,10 +159,11 @@ class Bird():
 
         def verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a):
             f=open("position.tracker","a")
-            f.write(str(p_a)+"\n")
+            f.write(str(p_a)+'\n')
             f.close()
             if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
-                raise ValueError("La position de depart c'est la position d'arrive")
+                #raise ValueError("La position de depart c'est la position d'arrive")
+                return None
             P_d=Vect(p_d[0],p_d[1],p_d[2])
             P_a=Vect(p_a[0],p_a[1],p_a[2])
             main_direc=Vect.soustraction(P_a,P_d)
@@ -174,9 +176,11 @@ class Bird():
             v_d_prj=Vect.prod_scalaire(V_d,main_direc)
             v_a_prj=Vect.prod_scalaire(V_a,main_direc)
             if v_d_prj<=0:
-                raise ValueError("La vitesse de départ ne suit pas la direction principale")
+                #raise ValueError("La vitesse de départ ne suit pas la direction principale")
+                return None
             if v_a_prj<=0:
-                raise ValueError("La vitesse d'arrive ne suit pas la direction principale")
+                #raise ValueError("La vitesse d'arrive ne suit pas la direction principale")
+                return None
 
             n=int(2*l/(dt*(v_d_prj+v_a_prj)))
             return P_d,P_a,V_d,V_a,l,main_direc,n
@@ -335,7 +339,8 @@ class Bird():
 
             return gliding(dir,V_d,V_a,n,base_mvt)
 
-
+        if verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)==None:
+            return None
         P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
         if n==0:
             return [],[]
@@ -366,8 +371,19 @@ class Bird():
             positions+=[p.array]
         return positions,diviation_angle(dir,V_d,V_a,n,base_mvt)
 
+
     def aleatoire_path(self,P_0,V_0,duration=120):
         def next_direction_and_next_pts(P_0,V_0):
+            def visible(P):
+                x,y,z=P.array[0],P.array[1],P.array[2]
+                if x>FRAME_WIDTH/2 or x<-FRAME_WIDTH/2:
+                    return False
+                if y>FRAME_HEIGHT/2 or y<-FRAME_HEIGHT/2:
+                    return False
+                if z>0 or z<-FRAME_HEIGHT:
+                    return False
+                return True
+
             def out_of_screen(P_0,next_dir):
 
                 def t_max_possible(P_0,a,b,c):
@@ -417,12 +433,13 @@ class Bird():
                             c*t[0]+P_0.array[2]
                         )
 
-                raise Exception("Can't find P_MAX :\n\tP_0\t\t= "+P_0.str()+"\n\tnext_dir\t= "+next_dir.str())
+                #raise Exception("Can't find P_MAX :\n\tP_0\t\t= "+P_0.str()+"\n\tnext_dir\t= "+next_dir.str())
+                return None
 
             base=V_0.BaseOrthoNormer()#[--,V0,--]
             base1=[base[2].copy(),base[0].copy(),base[1].copy()]
             base2=[base[1].copy(),base[2].copy(),base[0].copy()]
-            m=int(math.pi/2*1000)
+            m=int((math.pi/20)*1000)
             ang1=randrange(-m,m)/1000
             ang2=randrange(-m,m)/1000
             vec1=V_0.copy()
@@ -433,124 +450,91 @@ class Bird():
             next_dir=Vect.somme(vec1,vec2)
             next_dir.array/=next_dir.norme()
             P_MAX=out_of_screen(P_0,next_dir)
-            l_max_vec=Vect.soustraction(P_MAX,P_0)
-            l_max=l_max_vec.norme()*0.8
-            if l_max>1:
-                l_max=1
-            l=randrange(1,int(l_max*1000)+1)/1000
+            l_max=1
+            if P_MAX!=None:
+                l_max_vec=Vect.soustraction(P_MAX,P_0)
+                l_max=l_max_vec.norme()*0.8
+                if l_max>1:
+                    l_max=1
+            l=randrange(1,int(l_max*1000)+2)/1000
             l_vec=next_dir.copy()
             l_vec.scalaire_mult(l)
             P_next=Vect.somme(P_0,l_vec)
             return next_dir,P_next
 
         def next_vitesse(direction,P_1):
-            def la_plus_proche(X_MAX,Y_MAX,px,py,pz):
-                d=[]
-                if px>X_MAX*0.8:
-                    d+=[(X_MAX-px,0)]
-                if px<-X_MAX*0.8:
-                    d+=[(px-X_MAX,1)]
-                if py>Y_MAX*0.8:
-                    d+=[(Y_MAX-py,2)]
-                if px<-Y_MAX*0.8:
-                    d+=[(py-Y_MAX,3)]
-                if pz>FRAME_WIDTH*0.8:
-                    d+=[(FRAME_WIDTH-pz,4)]
-                if pz<FRAME_WIDTH*0.2:
-                    d+=[(pz,5)]
-                
-                d_min=FRAME_WIDTH+10
-                i_min=None
-                for l in d:
-                    if l[0]<d_min:
-                        d_min=l[0]
-                        i_min=l[1]
-                if i_min==None:
-                    i_min=randrange(0,6)
-                return i_min
-
-            def calcule_vitesse(i_choice,a,b,c,V_max):
-                vx,vy,vz=None,None,None
-                if i_choice==0 or i_choice==1:
-                    vx=randrange(0,V_max*1000)/1000
-                    if vx==0:
-                        vx=0.1
-                    if i_choice==1:
-                        vx*=-1
-                    if b!=0:
-                        vz=0
-                        vy=-a/b*vx
-                        if b>0:
-                            vy+=randrange(0,V_max*1000)/1000
-                        else:
-                            vy-=randrange(0,V_max*1000)/1000
-                    elif c!=0:
-                        vy=0
-                        vz=-a/c*vx
-                        if c>0:
-                            vz+=randrange(0,V_max*1000)/1000
-                        else:
-                            vz-=randrange(0,V_max*1000)/1000
-                    else:
-                        vy=0
-                        vz=0
-                
-                if i_choice==2 or i_choice==3:
-                    vy=randrange(0,V_max*1000)/1000
-                    if vy==0:
-                        vy=0.1
-                    if i_choice==3:
-                        vy*=-1
-                    if a!=0:
-                        vz=0
-                        vx=-b/a*vy
-                        if a>0:
-                            vx+=randrange(0,V_max*1000)/1000
-                        else:
-                            vx-=randrange(0,V_max*1000)/1000
-                    elif c!=0:
-                        vx=0
-                        vz=-b/c*vy
-                        if c>0:
-                            vz+=randrange(0,V_max*1000)/1000
-                        else:
-                            vz-=randrange(0,V_max*1000)/1000
-                    else:
-                        vx=0
-                        vz=0
-
-                if i_choice==4 or i_choice==5:
-                    vz=randrange(0,V_max*1000)/1000
-                    if vz==0:
-                        vz=0.1
-                    if i_choice==5:
-                        vz*=-1
-                    if b!=0:
-                        vx=0
-                        vy=-c/b*vz
-                        if b>0:
-                            vy+=randrange(0,V_max*1000)/1000
-                        else:
-                            vy-=randrange(0,V_max*1000)/1000
-                    elif a!=0:
-                        vy=0
-                        vx=-c/a*vz
-                        if a>0:
-                            vx+=randrange(0,V_max*1000)/1000
-                        else:
-                            vx-=randrange(0,V_max*1000)/1000
-                    else:
-                        vx=0
-                        vy=0
-
-                return Vect(vx,vy,vz)
-
-            V_max=0.5
-            a,b,c=direction.array[0],direction.array[1],direction.array[2]
+            raise Exception(str(IN))
             px,py,pz=P_1.array[0],P_1.array[1],P_1.array[2]
-            X_MAX=FRAME_WIDTH/2
-            Y_MAX=FRAME_HEIGHT/2
-            return calcule_vitesse(la_plus_proche(X_MAX,Y_MAX,px,py,pz),a,b,c,V_max)
+            Dis=[
+                Vect.prod_scalaire(direction,Vect.soustraction(Vect(FRAME_WIDTH/2,py,pz),Vect(px,py,pz))),
+                Vect.prod_scalaire(direction,Vect.soustraction(Vect(-FRAME_WIDTH/2,py,pz),Vect(px,py,pz))),
+                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,FRAME_WIDTH/2,pz),Vect(px,py,pz))),
+                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,-FRAME_WIDTH/2,pz),Vect(px,py,pz))),
+                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,py,0),Vect(px,py,pz))),
+                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,py,FRAME_WIDTH),Vect(px,py,pz)))
+            ]
+            V_MAX=1.0
+            vx,vy,vz=randrange(0,int(V_MAX*1000))/1000,randrange(0,int(V_MAX*1000))/1000,randrange(0,int(V_MAX*1000))/1000
+            dx,dy,dz=None,None,None
+            if Dis[0]>0:
+                vx*=-1
+                dx=Dis[0]
+            else:
+                dx=Dis[1]
+
+            if Dis[2]>0:
+                vy*=-1
+                dy=Dis[2]
+            else:
+                dy=Dis[3]
+            
+            if Dis[4]>0:
+                vz*=-1
+                dz=Dis[4]
+            else:
+                dz=Dis[5]
+            
+            adjustable=[]
+            a,b,c=direction.array[0],direction.array[1],direction.array[2]
+            if a!=0:
+                adjustable+=[0]
+            if b!=0:
+                adjustable+=[1]
+            if c!=0:
+                adjustable+=[2]
+
+            D=[]
+            if 0 in adjustable:
+                D=[(dx,0)]
+            if 1 in adjustable:
+                D=[(dy,1)]
+            if 2 in adjustable:
+                D=[(dz,2)]
+            
+            d_min=D[0]
+            for d in D:
+                if d[0]<d_min[0]:
+                    d_min[0]=d
+            i_adjust=d_min[1]
+
+            if i_adjust==0:
+                if a>0:
+                    vx=-1/a*(b*vy+c*vz)+V_MAX
+                else:
+                    vx=-1/a*(b*vy+c*vz)-V_MAX
+            if i_adjust==1:
+                if b>0:
+                    vy=-1/b*(a*vx+c*vz)+V_MAX
+                else:
+                    vy=-1/b*(a*vx+c*vz)-V_MAX
+            if i_adjust==2:
+                if c>0:
+                    vz=-1/c*(a*vx+b*vy)+V_MAX
+                else:
+                    vz=-1/c*(a*vx+b*vy)-V_MAX
+            
+            return Vect(vx,vy,vz)
+
 
         P=[]
         A=[]
