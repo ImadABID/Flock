@@ -150,41 +150,7 @@ class Bird():
             obj.scale(scale,about_point=position)
         return bird_objects
 
-    def position_interpolation(self,p_d,p_a,v_d,v_a):
-        '''
-        This function works in those conditions:
-            * p_d != p_a
-            * v_d and v_a must have a component following the main direction and it must be positive
-        '''
-
-        def verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a):
-            f=open("position.tracker","a")
-            f.write(str(p_a)+'\n')
-            f.close()
-            if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
-                #raise ValueError("La position de depart c'est la position d'arrive")
-                return None
-            P_d=Vect(p_d[0],p_d[1],p_d[2])
-            P_a=Vect(p_a[0],p_a[1],p_a[2])
-            main_direc=Vect.soustraction(P_a,P_d)
-            l=main_direc.norme()
-            main_direc.array/=l
-
-            V_d=Vect(v_d[0],v_d[1],v_d[2])
-            V_a=Vect(v_a[0],v_a[1],v_a[2])
-
-            v_d_prj=Vect.prod_scalaire(V_d,main_direc)
-            v_a_prj=Vect.prod_scalaire(V_a,main_direc)
-            if v_d_prj<=0:
-                #raise ValueError("La vitesse de départ ne suit pas la direction principale")
-                return None
-            if v_a_prj<=0:
-                #raise ValueError("La vitesse d'arrive ne suit pas la direction principale")
-                return None
-
-            n=int(2*l/(dt*(v_d_prj+v_a_prj)))
-            return P_d,P_a,V_d,V_a,l,main_direc,n
-
+    def position_interpolation(self,p_d,p_a,v_d,v_a,duration=60):
         def choose_mvt_base(main_direc,V_d,V_a):
             v_init=None
             if Vect.is_equal(Vect.prod_vect(V_d,main_direc),Vect(0,0,0)):
@@ -199,357 +165,222 @@ class Bird():
             vec=Vect.prod_vect(main_direc,vec_n)
             return [main_direc.copy(),vec,Vect.prod_vect(main_direc,vec)]
 
-        def vitesse_main_direction(V_d,V_a,l,n,base_mvt):
-            v_1=Vect.prod_scalaire(V_d,base_mvt[0])
-            v_2=Vect.prod_scalaire(V_a,base_mvt[0])
-            a=(v_2-v_1)/(n*dt)
-            
-            V=[v_1]
-            for i in range(1,n):
-                V+=[v_1+a*i*dt]
+        def easy_interpolation(P_d,V_d,P_a,V_a):
+            '''
+            This function works in those conditions:
+                * p_d != p_a
+                * v_d and v_a must have a component following the main direction and it must be positive
+            '''
+            def vitesse_main_direction(V_d,V_a,l,n,base_mvt):
+                v_1=Vect.prod_scalaire(V_d,base_mvt[0])
+                v_2=Vect.prod_scalaire(V_a,base_mvt[0])
+                a=(v_2-v_1)/(n*dt)
+                
+                V=[v_1]
+                for i in range(1,n):
+                    V+=[v_1+a*i*dt]
 
-            return V
+                return V
 
-        def vitesse_first_rad(V_d,V_a,l,n,base_mvt):
-            v1=Vect.prod_scalaire(V_d,base_mvt[1])
-            v2=Vect.prod_scalaire(V_a,base_mvt[1])
-            d=l/n
-            if v1*v2<=0:
-                x=abs(v2)/(abs(v2)+abs(v1))*l
-                V_rad_1_scal=[v1]
-                dis=0
-                if x!=0:
-                    a=-v1/x
-                    while dis<x:
+            def vitesse_first_rad(V_d,V_a,l,n,base_mvt):
+                v1=Vect.prod_scalaire(V_d,base_mvt[1])
+                v2=Vect.prod_scalaire(V_a,base_mvt[1])
+                d=l/n
+                if v1*v2<=0:
+                    x=abs(v2)/(abs(v2)+abs(v1))*l
+                    V_rad_1_scal=[v1]
+                    dis=0
+                    if x!=0:
+                        a=-v1/x
+                        while dis<x:
+                            dis+=d
+                            V_rad_1_scal+=[v1+a*dis]
+
+                    if x!=l:
+                        a=v2/(l-x)
+                        while dis<l:
+                            dis+=d
+                            V_rad_1_scal+=[a*(dis-x)]
+                    return V_rad_1_scal
+
+                else:
+                    x1=abs(v2)/(abs(v1)+3*abs(v2))*l
+                    x2,x3=2*x1,3*x1
+                    v3=(abs(v1)+abs(v2))/2
+                    if v1>0:
+                        v3*=-1
+                    V_rad_1_scal=[v1]
+                    dis=0
+                    a=-v1/x1
+                    while dis<x1:
                         dis+=d
                         V_rad_1_scal+=[v1+a*dis]
 
-                if x!=l:
-                    a=v2/(l-x)
+                    a=v3/x1
+                    while dis<x2:
+                        dis+=d
+                        V_rad_1_scal+=[a*(dis-x1)]
+
+                    a*=-1
+                    while dis<x3:
+                        dis+=d
+                        V_rad_1_scal+=[v3+a*(dis-x2)]
+                    
+                    a=v2/(l-x3)
                     while dis<l:
                         dis+=d
-                        V_rad_1_scal+=[a*(dis-x)]
-                return V_rad_1_scal
-
-            else:
-                x1=abs(v2)/(abs(v1)+3*abs(v2))*l
-                x2,x3=2*x1,3*x1
-                v3=(abs(v1)+abs(v2))/2
-                if v1>0:
-                    v3*=-1
-                V_rad_1_scal=[v1]
+                        V_rad_1_scal+=[a*(dis-x3)]
+                    
+                    return V_rad_1_scal
+            
+            def vitesse_second_rad(V_d,V_a,l,n,base_mvt):
+                v_init=Vect.prod_scalaire(V_a,base_mvt[2])
+                d=l/n
+                x1=l/3
                 dis=0
-                a=-v1/x1
-                while dis<x1:
-                    dis+=d
-                    V_rad_1_scal+=[v1+a*dis]
-
-                a=v3/x1
-                while dis<x2:
-                    dis+=d
-                    V_rad_1_scal+=[a*(dis-x1)]
-
-                a*=-1
-                while dis<x3:
-                    dis+=d
-                    V_rad_1_scal+=[v3+a*(dis-x2)]
-                
-                a=v2/(l-x3)
-                while dis<l:
-                    dis+=d
-                    V_rad_1_scal+=[a*(dis-x3)]
-                
-                return V_rad_1_scal
-        
-        def vitesse_second_rad(V_d,V_a,l,n,base_mvt):
-            v_init=Vect.prod_scalaire(V_a,base_mvt[2])
-            d=l/n
-            x1=l/3
-            dis=0
-            if v_init==0:
-                v_init=Vect.prod_scalaire(V_d,base_mvt[2])
                 if v_init==0:
-                    return [0]*n
+                    v_init=Vect.prod_scalaire(V_d,base_mvt[2])
+                    if v_init==0:
+                        return [0]*n
+                    
+                    v_=v_init/2
+                    V=[v_init]
+
+                    a=-v_init/x1
+                    while dis < x1:
+                        dis+=d
+                        V+=[v_init+a*dis]
+
+                    a=v_/x1
+                    while dis < 2*x1:
+                        dis+=d
+                        V+=[a*(dis-x1)]
+                    
+                    a*=-1
+                    while dis < l:
+                        dis+=d
+                        V+=[v_+a*(dis-2*x1)]
+                    
+                    return V
+
+                else :
+                    V=[v_init]
+                    v_=v_init/2
+
+                    a=-v_/x1
+                    while dis < x1:
+                        dis+=d
+                        V+=[a*dis]
+
+                    a*=-1
+                    while dis < 2*x1:
+                        dis+=d
+                        V+=[v_+a*(dis-x1)]
+
+                    a=v_init/x1
+                    while dis < l:
+                        dis+=d
+                        V+=[a*(dis-2*x1)]
+                    
+                    return V
+
+            def diviation_angle(dir,V_d,V_a,n,base_mvt):
+                def behavior(dir,V_d,V_a,n,base_mvt):
+                    if Vect.prod_scalaire(dir,Vect(0,1,0))>=0:
+                        return False #for flapping
+                    return True #for gliding
+
+                def flapping(dir,V_d,V_a,n,base_mvt):
+                    pass
                 
-                v_=v_init/2
-                V=[v_init]
+                def gliding(dir,V_d,V_a,n,base_mvt):
+                    Angles=[]
+                    moy_ang=Vect.angle_entre(V_d,V_a,base_mvt)
+                    if Vect.angle_entre(V_d,base_mvt[0],base_mvt)*Vect.angle_entre(V_a,base_mvt[0],base_mvt)>0:
+                        moy_ang+=math.pi
+                    n_2=int(n/2)
+                    if n_2!=0:
+                        a=moy_ang/n_2
+                        for i in range(n_2):
+                            Angles+=[i*a]
+                    a=-moy_ang/(n-n_2)
+                    for i in range(n-n_2):
+                        Angles+=[moy_ang+i*a]
 
-                a=-v_init/x1
-                while dis < x1:
-                    dis+=d
-                    V+=[v_init+a*dis]
+                    return Angles+[0]
 
-                a=v_/x1
-                while dis < 2*x1:
-                    dis+=d
-                    V+=[a*(dis-x1)]
-                
-                a*=-1
-                while dis < l:
-                    dis+=d
-                    V+=[v_+a*(dis-2*x1)]
-                
-                return V
+                return gliding(dir,V_d,V_a,n,base_mvt)
 
-            else :
-                V=[v_init]
-                v_=v_init/2
+            main_direc=Vect.soustraction(P_a,P_d)
+            l=main_direc.norme()
+            main_direc.array/=l
 
-                a=-v_/x1
-                while dis < x1:
-                    dis+=d
-                    V+=[a*dis]
+            n=int(2*l/(dt*(Vect.prod_scalaire(V_d,main_direc)+Vect.prod_scalaire(V_a,main_direc))))
 
-                a*=-1
-                while dis < 2*x1:
-                    dis+=d
-                    V+=[v_+a*(dis-x1)]
+            if n==0:
+                return [],[]
 
-                a=v_init/x1
-                while dis < l:
-                    dis+=d
-                    V+=[a*(dis-2*x1)]
-                
-                return V
+            # Traiter le cas ou main_direc,V_d,V_a sont colinéaires
+            base_mvt=choose_mvt_base(main_direc,V_d,V_a)
 
-        def diviation_angle(dir,V_d,V_a,n,base_mvt):
-            def behavior(dir,V_d,V_a,n,base_mvt):
-                if Vect.prod_scalaire(dir,Vect(0,1,0))>=0:
-                    return False #for flapping
-                return True #for gliding
+            Vn=vitesse_main_direction(V_d,V_a,l,n,base_mvt)
+            Vr1=vitesse_first_rad(V_d,V_a,l,n,base_mvt)
+            Vr2=vitesse_second_rad(V_d,V_a,l,n,base_mvt)
 
-            def flapping(dir,V_d,V_a,n,base_mvt):
-                pass
-            
-            def gliding(dir,V_d,V_a,n,base_mvt):
-                Angles=[]
-                moy_ang=Vect.angle_entre(V_d,V_a,base_mvt)
-                if Vect.angle_entre(V_d,base_mvt[0],base_mvt)*Vect.angle_entre(V_a,base_mvt[0],base_mvt)>0:
-                    moy_ang+=math.pi
-                n_2=int(n/2)
-                if n_2!=0:
-                    a=moy_ang/n_2
-                    for i in range(n_2):
-                        Angles+=[i*a]
-                a=-moy_ang/(n-n_2)
-                for i in range(n-n_2):
-                    Angles+=[moy_ang+i*a]
+            Positions=[P_d]
+            for i in range(n):
+                vn_vec=base_mvt[0].copy()
+                vn_vec.scalaire_mult(Vn[i])
+                vr1_vec=base_mvt[1].copy()
+                vr1_vec.scalaire_mult(Vr1[i])
+                vr2_vec=base_mvt[2].copy()
+                vr2_vec.scalaire_mult(Vr2[i])
 
-                return Angles+[0]
+                Vr=Vect.somme(vr1_vec,vr2_vec)
+                V=Vect.somme(vn_vec,Vr)
 
-            return gliding(dir,V_d,V_a,n,base_mvt)
+                V.scalaire_mult(dt)
+                Positions+=[Vect.somme(Positions[i],V)]
 
-        if verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)==None:
-            return None
-        P_d,P_a,V_d,V_a,l,main_direc,n=verify_conditions_and_generate_vect(p_d,p_a,v_d,v_a)
-        if n==0:
-            return [],[]
-        # Traiter le cas ou main_direc,V_d,V_a sont colinéaires
-        base_mvt=choose_mvt_base(main_direc,V_d,V_a)
+            positions=[]
+            for p in Positions:
+                positions+=[p.array]
+            return positions,diviation_angle(dir,V_d,V_a,n,base_mvt)
 
-        Vn=vitesse_main_direction(V_d,V_a,l,n,base_mvt)
-        Vr1=vitesse_first_rad(V_d,V_a,l,n,base_mvt)
-        Vr2=vitesse_second_rad(V_d,V_a,l,n,base_mvt)
+        def pt_aleatoir(BIRD_LIVING_SPACE):
+            pass
 
-        Positions=[P_d]
-        for i in range(n):
-            vn_vec=base_mvt[0].copy()
-            vn_vec.scalaire_mult(Vn[i])
-            vr1_vec=base_mvt[1].copy()
-            vr1_vec.scalaire_mult(Vr1[i])
-            vr2_vec=base_mvt[2].copy()
-            vr2_vec.scalaire_mult(Vr2[i])
+        def pt_v_inter(P_d,V_d,P_a,V_a,main_direc):
+            pass
 
-            Vr=Vect.somme(vr1_vec,vr2_vec)
-            V=Vect.somme(vn_vec,Vr)
+        def somme_deux_P_A_format(P1,A1,P2,A2):#P1,A1+P2,A2
+            pass
 
-            V.scalaire_mult(dt)
-            Positions+=[Vect.somme(Positions[i],V)]
+        BIRD_LIVING_SPACE=[-FRAME_WIDTH/2,FRAME_WIDTH/2,-FRAME_HEIGHT/2,FRAME_HEIGHT/2,-FRAME_WIDTH/2,0.0]
+        
+        if p_d[0]==p_a[0] and p_d[1]==p_a[1] and p_d[2]==p_a[2]:
+            pt_inter=pt_aleatoir(BIRD_LIVING_SPACE).array
+            P1,A1=self.position_interpolation(p_d,pt_inter,RIGHT,LEFT)
+            P2,A2=self.position_interpolation(pt_inter,p_d,LEFT,RIGHT)
+            return somme_deux_P_A_format(P1,A1,P2,A2)
+        
+        P_d=Vect(p_d[0],p_d[1],p_d[2])
+        P_a=Vect(p_a[0],p_a[1],p_a[2])
+        main_direc=Vect.soustraction(P_a,P_d)
+        main_direc.array/=main_direc.norme()
 
-        positions=[]
-        for p in Positions:
-            positions+=[p.array]
-        return positions,diviation_angle(dir,V_d,V_a,n,base_mvt)
+        V_d=Vect(v_d[0],v_d[1],v_d[2])
+        V_a=Vect(v_a[0],v_a[1],v_a[2])
 
+        v_d_prj=Vect.prod_scalaire(V_d,main_direc)
+        v_a_prj=Vect.prod_scalaire(V_a,main_direc)
+        if v_d_prj<=0 or v_a_prj<=0 :
+            P,V=pt_v_inter(P_d,V_d,P_a,V_a,main_direc)
+            P1,A1=easy_interpolation(P_d,V_d,P,V)
+            P2,A2=easy_interpolation(P,V,P_a,V_a)
+            return somme_deux_P_A_format(P1,A1,P2,A2)
 
-    def aleatoire_path(self,P_0,V_0,duration=120):
-        def next_direction_and_next_pts(P_0,V_0):
-            def visible(P):
-                x,y,z=P.array[0],P.array[1],P.array[2]
-                if x>FRAME_WIDTH/2 or x<-FRAME_WIDTH/2:
-                    return False
-                if y>FRAME_HEIGHT/2 or y<-FRAME_HEIGHT/2:
-                    return False
-                if z>0 or z<-FRAME_HEIGHT:
-                    return False
-                return True
-
-            def out_of_screen(P_0,next_dir):
-
-                def t_max_possible(P_0,a,b,c):
-                    T_max_possible=[]
-
-                    if a>0:
-                        T_max_possible+=[((0.5*FRAME_WIDTH-P_0.array[0])/a,0)]
-                    if a<0:
-                        T_max_possible+=[((-0.5*FRAME_WIDTH-P_0.array[0])/a,0)]
-
-                    if b>0:
-                        T_max_possible+=[((0.5*FRAME_HEIGHT-P_0.array[1])/b,1)]
-                    if b<0:
-                        T_max_possible+=[((-0.5*FRAME_HEIGHT-P_0.array[1])/b,1)]
-
-                    if c>0:
-                        T_max_possible+=[(-P_0.array[2]/c,2)]
-                    if c<0:
-                        T_max_possible+=[((-FRAME_WIDTH-P_0.array[2])/c,2)]
-
-                    return T_max_possible
-
-                def is_it_t_max(t,a,b,c,P_0):
-                    x=a*t[0]+P_0.array[0]
-                    y=b*t[0]+P_0.array[1]
-                    z=c*t[0]+P_0.array[2]
-
-                    err=0.001
-
-                    if t[1]!=0 and (x-err>0.5*FRAME_WIDTH or x+err<-0.5*FRAME_WIDTH):
-                        return False
-                    if t[1]!=1 and (y-err>0.5*FRAME_HEIGHT or y+err<-0.5*FRAME_HEIGHT):
-                        return False
-                    if t[1]!=2 and (z-err>0 or z+err<-FRAME_WIDTH):
-                        return False
-
-                    return True
-
-                a,b,c = next_dir.array[0],next_dir.array[1],next_dir.array[2]
-
-                T_max_possible=t_max_possible(P_0,a,b,c)
-                for t in T_max_possible:
-                    if is_it_t_max(t,a,b,c,P_0):
-                        return Vect(
-                            a*t[0]+P_0.array[0],
-                            b*t[0]+P_0.array[1],
-                            c*t[0]+P_0.array[2]
-                        )
-
-                #raise Exception("Can't find P_MAX :\n\tP_0\t\t= "+P_0.str()+"\n\tnext_dir\t= "+next_dir.str())
-                return None
-
-            base=V_0.BaseOrthoNormer()#[--,V0,--]
-            base1=[base[2].copy(),base[0].copy(),base[1].copy()]
-            base2=[base[1].copy(),base[2].copy(),base[0].copy()]
-            m=int((math.pi/20)*1000)
-            ang1=randrange(-m,m)/1000
-            ang2=randrange(-m,m)/1000
-            vec1=V_0.copy()
-            vec2=V_0.copy()
-            vec1.rotation_arround_direction(ang1,base1)
-            vec2.rotation_arround_direction(ang2,base2)
-
-            next_dir=Vect.somme(vec1,vec2)
-            next_dir.array/=next_dir.norme()
-            P_MAX=out_of_screen(P_0,next_dir)
-            l_max=1
-            if P_MAX!=None:
-                l_max_vec=Vect.soustraction(P_MAX,P_0)
-                l_max=l_max_vec.norme()*0.8
-                if l_max>1:
-                    l_max=1
-            l=randrange(1,int(l_max*1000)+2)/1000
-            l_vec=next_dir.copy()
-            l_vec.scalaire_mult(l)
-            P_next=Vect.somme(P_0,l_vec)
-            return next_dir,P_next
-
-        def next_vitesse(direction,P_1):
-            raise Exception(str(IN))
-            px,py,pz=P_1.array[0],P_1.array[1],P_1.array[2]
-            Dis=[
-                Vect.prod_scalaire(direction,Vect.soustraction(Vect(FRAME_WIDTH/2,py,pz),Vect(px,py,pz))),
-                Vect.prod_scalaire(direction,Vect.soustraction(Vect(-FRAME_WIDTH/2,py,pz),Vect(px,py,pz))),
-                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,FRAME_WIDTH/2,pz),Vect(px,py,pz))),
-                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,-FRAME_WIDTH/2,pz),Vect(px,py,pz))),
-                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,py,0),Vect(px,py,pz))),
-                Vect.prod_scalaire(direction,Vect.soustraction(Vect(px,py,FRAME_WIDTH),Vect(px,py,pz)))
-            ]
-            V_MAX=1.0
-            vx,vy,vz=randrange(0,int(V_MAX*1000))/1000,randrange(0,int(V_MAX*1000))/1000,randrange(0,int(V_MAX*1000))/1000
-            dx,dy,dz=None,None,None
-            if Dis[0]>0:
-                vx*=-1
-                dx=Dis[0]
-            else:
-                dx=Dis[1]
-
-            if Dis[2]>0:
-                vy*=-1
-                dy=Dis[2]
-            else:
-                dy=Dis[3]
-            
-            if Dis[4]>0:
-                vz*=-1
-                dz=Dis[4]
-            else:
-                dz=Dis[5]
-            
-            adjustable=[]
-            a,b,c=direction.array[0],direction.array[1],direction.array[2]
-            if a!=0:
-                adjustable+=[0]
-            if b!=0:
-                adjustable+=[1]
-            if c!=0:
-                adjustable+=[2]
-
-            D=[]
-            if 0 in adjustable:
-                D=[(dx,0)]
-            if 1 in adjustable:
-                D=[(dy,1)]
-            if 2 in adjustable:
-                D=[(dz,2)]
-            
-            d_min=D[0]
-            for d in D:
-                if d[0]<d_min[0]:
-                    d_min[0]=d
-            i_adjust=d_min[1]
-
-            if i_adjust==0:
-                if a>0:
-                    vx=-1/a*(b*vy+c*vz)+V_MAX
-                else:
-                    vx=-1/a*(b*vy+c*vz)-V_MAX
-            if i_adjust==1:
-                if b>0:
-                    vy=-1/b*(a*vx+c*vz)+V_MAX
-                else:
-                    vy=-1/b*(a*vx+c*vz)-V_MAX
-            if i_adjust==2:
-                if c>0:
-                    vz=-1/c*(a*vx+b*vy)+V_MAX
-                else:
-                    vz=-1/c*(a*vx+b*vy)-V_MAX
-            
-            return Vect(vx,vy,vz)
-
-
-        P=[]
-        A=[]
-        Pd=P_0
-        Vd=V_0
-        n=int(duration/dt)
-        while(len(P)<n):
-            next_dir,Pa=next_direction_and_next_pts(Pd,Vd)
-            Va=next_vitesse(next_dir,Pd)
-            PA=self.position_interpolation(Pd.array,Pa.array,Vd.array,Va.array)
-            P+=PA[0]
-            A+=PA[1]
-            Pd,Vd=Pa,Va
-
-        return P[:n],A[:n]
+        return easy_interpolation(P_d,V_d,P_a,V_a)
 
 #============================= Vect class =================================================
 
